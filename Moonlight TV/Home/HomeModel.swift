@@ -98,12 +98,11 @@ final class HomeModel: NSObject, ObservableObject, DiscoveryCallback {
     private var hosts: [String: TemporaryHost] = [:]
     private var entries: [String: Entry] = [:]
     private var stores: [String: SteamActivityStore] = [:]
-    private var discovery: DiscoveryManager!
-    private let clientCert: Data
+    private var discovery: DiscoveryManager?
+    private var clientCert: Data?
     private let operations = OperationQueue()
     private var timer: Timer?
     private var focusedId: String?
-    private var autoPair: Task<Void, Never>?
     private var addQuery: String?
     private var addFailed: String?
 
@@ -119,9 +118,6 @@ final class HomeModel: NSObject, ObservableObject, DiscoveryCallback {
     private static let cacheDirectory = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0].appendingPathComponent("SteamActivity")
 
     override init() {
-        CryptoManager.generateKeyPairUsingSSL()
-        _ = IdManager.getUniqueId()
-        clientCert = CryptoManager.readCertFromFile()
         super.init()
         for case let host as TemporaryHost in DataManager().getHosts() {
             if host.activeAddress == nil {
@@ -129,8 +125,25 @@ final class HomeModel: NSObject, ObservableObject, DiscoveryCallback {
             }
             hosts[host.uuid] = host
         }
-        discovery = DiscoveryManager(hosts: Array(hosts.values), andCallback: self)
         rebuild()
+    }
+
+    /// Certificates and discovery start after the first frame, so the home screen replaces the launch image at once.
+    private func start() {
+        DispatchQueue.global(qos: .userInitiated).async {
+            // Generates the pairing certificate on first launch, which takes a moment
+            CryptoManager.generateKeyPairUsingSSL()
+            _ = IdManager.getUniqueId()
+            let cert = CryptoManager.readCertFromFile()
+            DispatchQueue.main.async {
+                self.clientCert = cert
+                let discovery = DiscoveryManager(hosts: Array(self.hosts.values), andCallback: self)!
+                self.discovery = discovery
+                if self.timer != nil {
+                    discovery.startDiscovery()
+                }
+            }
+        }
     }
 
     // MARK: Lifecycle
@@ -143,9 +156,13 @@ final class HomeModel: NSObject, ObservableObject, DiscoveryCallback {
         for id in entries.keys {
             entries[id]?.lastFetch = nil
         }
-        discovery.resetDiscoveryState()
-        if pairOperation == nil {
-            discovery.startDiscovery()
+        if let discovery {
+            discovery.resetDiscoveryState()
+            if pairOperation == nil {
+                discovery.startDiscovery()
+            }
+        } else {
+            start()
         }
         timer?.invalidate()
         timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
@@ -157,7 +174,7 @@ final class HomeModel: NSObject, ObservableObject, DiscoveryCallback {
     func disappeared() {
         timer?.invalidate()
         timer = nil
-        discovery.stopDiscovery()
+        discovery?.stopDiscovery()
     }
 
     nonisolated func updateAllHosts(_ hostList: [Any]!) {
@@ -229,7 +246,7 @@ final class HomeModel: NSObject, ObservableObject, DiscoveryCallback {
         }
 
         let pinLeft = max(0, Int(pinUntil.timeIntervalSinceNow.rounded(.up)))
-        tiles = sorted.map { host in
+        let newTiles = sorted.map { host in
             let entry = entries[host.uuid] ?? Entry()
             let state = cardState(host, entry)
             let paired = isPaired(host)
@@ -245,15 +262,21 @@ final class HomeModel: NSObject, ObservableObject, DiscoveryCallback {
                                  line: statusLine(for: snapshot),
                                  menu: holdMenu(for: state, runningAppName: runningApp))
         }
-
+        let newAddLine: StatusLine
         if let query = addQuery {
-            addLine = .lookingFor(query)
+            newAddLine = .lookingFor(query)
         } else if let failed = addFailed {
-            addLine = .notFound(failed)
+            newAddLine = .notFound(failed)
         } else {
-            addLine = hosts.isEmpty ? .lookingForComputers : .addComputer
+            newAddLine = hosts.isEmpty ? .lookingForComputers : .addComputer
         }
-        pin = pairId != nil && pinLeft > 0 ? pin : nil
+        let newPin = pairId != nil && pinLeft > 0 ? pin : nil
+
+        // The timer calls this every second. Only republish when something actually changed,
+        // otherwise every tile's context menu is torn down and re-presented once a second.
+        if newTiles != tiles { tiles = newTiles }
+        if newAddLine != addLine { addLine = newAddLine }
+        if newPin != pin { pin = newPin }
     }
 
     private func store(_ id: String) -> SteamActivityStore? {
@@ -294,19 +317,10 @@ final class HomeModel: NSObject, ObservableObject, DiscoveryCallback {
         if let previous, previous == pairId {
             cancelPairing()
         }
-
-        // Resting on an unpaired computer starts pairing, so its PIN is on screen
-        autoPair?.cancel()
-        guard let id, let host = hosts[id], !isPaired(host), entries[id]?.phase == .idle else { return }
-        autoPair = Task {
-            try? await Task.sleep(for: .milliseconds(600))
-            guard !Task.isCancelled, focusedId == id, entries[id]?.phase == .idle else { return }
-            startPairing(id)
-        }
     }
 
     private func startPairing(_ id: String) {
-        guard let host = hosts[id], host.state == .online, pairOperation == nil else { return }
+        guard let host = hosts[id], host.state == .online, pairOperation == nil, let clientCert, let discovery else { return }
         entries[id]?.phase = .pairing
         pairId = id
         pin = nil
@@ -316,7 +330,6 @@ final class HomeModel: NSObject, ObservableObject, DiscoveryCallback {
         let operation = PairManager(manager: HttpManager(host: host), clientCert: clientCert, callback: PairForwarder(model: self, generation: pairGeneration))!
         pairOperation = operation
         // Polling the server while pairing confuses it, so discovery pauses meanwhile
-        let discovery = discovery!
         let queue = operations
         DispatchQueue.global().async {
             discovery.stopDiscoveryBlocking()
@@ -329,7 +342,7 @@ final class HomeModel: NSObject, ObservableObject, DiscoveryCallback {
         pairOperation = nil
         pairId = nil
         pin = nil
-        discovery.startDiscovery()
+        discovery?.startDiscovery()
     }
 
     private func cancelPairing() {
@@ -441,12 +454,11 @@ final class HomeModel: NSObject, ObservableObject, DiscoveryCallback {
     }
 
     private func connect(_ id: String, desktop: Bool, viewOnly: Bool) {
-        guard let host = hosts[id] else { return }
+        guard let host = hosts[id], let discovery else { return }
         entries[id]?.phase = viewOnly ? .joining : .connecting
         entries[id]?.networkTest = nil
         rebuild()
 
-        let discovery = discovery!
         DispatchQueue.global().async {
             discovery.pauseDiscovery(for: host)
             let response = ConnectionHelper.getAppList(for: host)
@@ -544,7 +556,7 @@ final class HomeModel: NSObject, ObservableObject, DiscoveryCallback {
 
     private func quit(_ id: String) {
         guard let host = hosts[id] else { return }
-        let discovery = discovery!
+        guard let discovery else { return }
         DispatchQueue.global().async {
             let manager = HttpManager(host: host)!
             let response = HttpResponse()
@@ -596,7 +608,7 @@ final class HomeModel: NSObject, ObservableObject, DiscoveryCallback {
     func remove(_ id: String) {
         guard let host = hosts[id] else { return }
         if pairId == id { cancelPairing() }
-        discovery.removeHost(fromDiscovery: host)
+        discovery?.removeHost(fromDiscovery: host)
         DataManager().remove(host)
         let store = stores.removeValue(forKey: id)
         Task { await store?.remove() }
@@ -629,7 +641,7 @@ final class HomeModel: NSObject, ObservableObject, DiscoveryCallback {
         addQuery = address
         addFailed = nil
         rebuild()
-        let discovery = discovery!
+        guard let discovery else { return }
         DispatchQueue.global(qos: .userInitiated).async {
             discovery.discoverHost(address) { host, _ in
                 DispatchQueue.main.async {
