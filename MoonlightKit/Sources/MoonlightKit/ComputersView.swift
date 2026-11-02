@@ -52,6 +52,27 @@ extension HoldMenuItem {
         case .removeComputer: "Remove Computer"
         }
     }
+
+    var symbol: String {
+        switch self {
+        case .openBigPicture: "gamecontroller"
+        case .openDesktop: "display"
+        case .quit: "xmark.circle"
+        case .testNetwork: "wifi"
+        case .removeComputer: "trash"
+        }
+    }
+}
+
+/// Liquid Glass on tvOS 26, a blurred material before it.
+struct GlassCapsule: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(tvOS 26.0, iOS 26.0, *) {
+            content.glassEffect(.regular, in: .capsule)
+        } else {
+            content.background(.ultraThinMaterial, in: Capsule())
+        }
+    }
 }
 
 /// One line with a 32-point icon or spinner in front. Never two lines.
@@ -63,12 +84,33 @@ struct StatusLineView: View {
             if line.icon == .spinner {
                 ProgressView().frame(width: 32, height: 32)
             } else if let symbol = line.icon.symbol {
-                Image(systemName: symbol).font(.system(size: 28)).frame(width: 32, height: 32)
+                Image(systemName: symbol)
+                    .font(.system(size: 28))
+                    .foregroundStyle(line.icon == .warning ? Color(hex: 0xFF9F0A) : line.icon == .lockCross ? Color(hex: 0xFF453A) : .white.opacity(0.78))
+                    .frame(width: 32, height: 32)
             }
             Text(line.text).font(.system(size: 31)).lineLimit(1)
         }
         .foregroundStyle(.white.opacity(0.78))
         .frame(height: 41, alignment: .leading)
+    }
+}
+
+/// The pairing PIN, typed into Apollo on the PC.
+struct PinView: View {
+    let pin: String
+
+    var body: some View {
+        HStack(spacing: 14) {
+            ForEach(Array(pin.enumerated()), id: \.offset) { _, digit in
+                Text(String(digit))
+                    .font(.system(size: 56, weight: .bold).monospacedDigit())
+                    .frame(width: 76, height: 96)
+                    .background(.white.opacity(0.16), in: RoundedRectangle(cornerRadius: 18))
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("PIN \(pin.map(String.init).joined(separator: " "))")
     }
 }
 
@@ -81,101 +123,187 @@ struct BadgeView: View {
             if busy {
                 ProgressView().frame(width: 32, height: 32)
             } else {
-                HStack(spacing: 8) {
-                    Circle().fill(Color(hex: badge.hex)).frame(width: 14, height: 14)
-                    Text(badge.rawValue).font(.system(size: 23, weight: .semibold))
+                HStack(spacing: 10) {
+                    switch badge {
+                    case .notPaired:
+                        Image(systemName: "lock.fill").font(.system(size: 18))
+                    case .inUse:
+                        Image(systemName: "gamecontroller.fill").font(.system(size: 17)).foregroundStyle(Color(hex: badge.hex))
+                    default:
+                        Circle().fill(Color(hex: badge.hex)).frame(width: 13, height: 13)
+                    }
+                    Text(badge.rawValue).font(.system(size: 22, weight: .semibold))
                 }
             }
         }
-        .padding(.horizontal, 14).padding(.vertical, 8)
-        .background(.ultraThinMaterial, in: Capsule())
+        .foregroundStyle(.white)
+        .padding(.horizontal, 16)
+        .frame(height: 40)
+        .modifier(GlassCapsule())
     }
 }
 
+/// The tile's face. The system card button style supplies the focus lift, tilt and shine.
 struct HostTileView: View {
     let model: HostTileModel
-    @Environment(\.isFocused) private var focused
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            ZStack(alignment: .topTrailing) {
-                RoundedRectangle(cornerRadius: 22).fill(Color(hex: model.tintHex))
-                if let data = model.tileArt, let image = UIImage(data: data) {
-                    Image(uiImage: image).resizable().scaledToFill()
-                } else {
-                    Image(systemName: model.state.isPaired ? "desktopcomputer" : "lock.desktopcomputer")
-                        .font(.system(size: 96)).foregroundStyle(.white.opacity(0.85))
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                }
-                BadgeView(badge: model.state.badge, busy: model.state.isBusy).padding(16)
+        ZStack(alignment: .bottomLeading) {
+            Color(hex: model.tintHex)
+            if let data = model.tileArt, let image = UIImage(data: data) {
+                Image(uiImage: image).resizable().scaledToFill()
+            } else {
+                Image(systemName: model.state.isPaired ? "desktopcomputer" : "lock.desktopcomputer")
+                    .font(.system(size: 90))
+                    .foregroundStyle(.white.opacity(0.9))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            .frame(width: 280, height: 396)
-            .clipShape(RoundedRectangle(cornerRadius: 22))
-            .overlay(RoundedRectangle(cornerRadius: 22).stroke(.white, lineWidth: focused ? 4 : 0))
-            .scaleEffect(focused ? 1.08 : 1)
-            .shadow(color: .black.opacity(focused ? 0.7 : 0), radius: 30, y: 24)
-            Text(model.name).font(.system(size: 29, weight: .medium)).lineLimit(1).frame(width: 280, alignment: .leading)
+            LinearGradient(colors: [.clear, .black.opacity(0.75)], startPoint: .center, endPoint: .bottom)
+            Text(model.name)
+                .font(.system(size: 38, weight: .bold))
+                .foregroundStyle(.white)
+                .lineLimit(2)
+                .shadow(color: .black.opacity(0.6), radius: 5, y: 2)
+                .padding(26)
         }
-        .opacity(focused ? 1 : 0.7)
+        .overlay(alignment: .topTrailing) {
+            BadgeView(badge: model.state.badge, busy: model.state.isBusy).padding(16)
+        }
+        .frame(width: 280, height: 396)
+        .clipped()
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(model.name), \(model.state.badge.rawValue). Press to play, hold for options.")
     }
 }
 
-/// The one screen: the focused host's art fills the screen, a status line, and a row of tiles.
-/// Press plays; hold opens the menu. Settings, dialogs, and pairing are separate views.
+/// The one screen: the focused computer's art fills the screen, a status line, and a row of tiles.
+/// Press plays; hold opens the system context menu. Dialogs and sheets belong to the app.
 public struct ComputersView: View {
+    public static let addId = "add"
+
     public let hosts: [HostTileModel]
+    public let addLine: StatusLine
+    public let pin: String?
     public var onPress: (String) -> Void
     public var onMenu: (String, HoldMenuItem) -> Void
-    @FocusState private var focus: String?
+    public var onAdd: () -> Void
+    public var onSettings: () -> Void
+    public var onFocus: (String?) -> Void
 
-    public init(hosts: [HostTileModel], onPress: @escaping (String) -> Void, onMenu: @escaping (String, HoldMenuItem) -> Void) {
-        self.hosts = hosts; self.onPress = onPress; self.onMenu = onMenu
+    @FocusState private var focus: String?
+    /// The tile the hero describes. It stays put while focus is up on Settings.
+    @State private var heroId: String?
+
+    public init(hosts: [HostTileModel], addLine: StatusLine, pin: String?,
+                onPress: @escaping (String) -> Void, onMenu: @escaping (String, HoldMenuItem) -> Void,
+                onAdd: @escaping () -> Void, onSettings: @escaping () -> Void, onFocus: @escaping (String?) -> Void) {
+        self.hosts = hosts; self.addLine = addLine; self.pin = pin
+        self.onPress = onPress; self.onMenu = onMenu; self.onAdd = onAdd; self.onSettings = onSettings; self.onFocus = onFocus
     }
 
-    private var focused: HostTileModel? { hosts.first { $0.id == focus } ?? hosts.first }
+    private var heroHost: HostTileModel? {
+        let id = heroId ?? hosts.first?.id
+        return hosts.first { $0.id == id }
+    }
+
+    private var heroLine: StatusLine {
+        heroId == Self.addId || hosts.isEmpty ? addLine : heroHost?.line ?? addLine
+    }
 
     public var body: some View {
-        ZStack(alignment: .bottomLeading) {
+        ZStack(alignment: .topLeading) {
             backdrop
-            VStack(alignment: .leading, spacing: 24) {
-                if let line = focused?.line { StatusLineView(line: line) }
+            LinearGradient(stops: [.init(color: Color(hex: 0x101013).opacity(0.94), location: 0),
+                                   .init(color: Color(hex: 0x101013).opacity(0.72), location: 0.42),
+                                   .init(color: Color(hex: 0x101013).opacity(0.15), location: 0.78)],
+                           startPoint: .leading, endPoint: .trailing)
+            LinearGradient(stops: [.init(color: .clear, location: 0.48), .init(color: Color(hex: 0x101013).opacity(0.95), location: 0.85)],
+                           startPoint: .top, endPoint: .bottom)
+
+            VStack(alignment: .leading, spacing: 30) {
+                if !heroLine.text.isEmpty {
+                    StatusLineView(line: heroLine)
+                }
+                if let pin, heroHost?.state == .pairing, heroId != Self.addId {
+                    PinView(pin: pin)
+                }
+            }
+            .padding(.leading, 80)
+            .padding(.top, 80)
+            .id(heroId)
+            .transition(.opacity)
+
+            VStack(spacing: 0) {
+                HStack {
+                    Spacer()
+                    Button(action: onSettings) {
+                        Image(systemName: "gearshape.fill").font(.system(size: 38))
+                    }
+                    .buttonBorderShape(.circle)
+                    .accessibilityLabel("Settings")
+                    .focused($focus, equals: "settings")
+                }
+                .padding(.top, 60)
+                .padding(.trailing, 80)
+                .focusSection()
+
+                Spacer()
+
                 ScrollView(.horizontal, showsIndicators: false) {
                     LazyHStack(spacing: 30) {
                         ForEach(hosts) { host in
                             Button { onPress(host.id) } label: { HostTileView(model: host) }
-                                .buttonStyle(.plain)
+                                .buttonStyle(.card)
                                 .focused($focus, equals: host.id)
                                 .contextMenu {
                                     ForEach(Array(host.menu.enumerated()), id: \.offset) { _, item in
-                                        Button(item.title, role: item == .removeComputer ? .destructive : nil) { onMenu(host.id, item) }
+                                        Button(role: item == .removeComputer ? .destructive : nil) {
+                                            onMenu(host.id, item)
+                                        } label: {
+                                            Label(item.title, systemImage: item.symbol)
+                                        }
                                     }
                                 }
                         }
+                        Button(action: onAdd) {
+                            Image(systemName: "plus.circle.fill")
+                                .font(.system(size: 54))
+                                .foregroundStyle(.white.opacity(0.85))
+                                .frame(width: 280, height: 396)
+                                .background(Color(hex: 0x101013).opacity(0.4))
+                        }
+                        .buttonStyle(.card)
+                        .accessibilityLabel("Add Computer")
+                        .focused($focus, equals: Self.addId)
                     }
+                    .padding(.horizontal, 80)
                     .padding(.vertical, 40)
                 }
+                .scrollClipDisabled()
+                .focusSection()
+                .padding(.bottom, 60)
             }
-            .padding(.horizontal, 80).padding(.bottom, 60)
         }
         .ignoresSafeArea()
-        .animation(.easeOut(duration: 0.3), value: focused?.id)
+        .animation(.easeOut(duration: 0.3), value: heroId)
+        .onChange(of: focus) { _, newValue in
+            if let newValue, newValue != "settings" {
+                heroId = newValue
+            }
+            onFocus(newValue == "settings" ? heroId : newValue)
+        }
     }
 
     @ViewBuilder private var backdrop: some View {
-        if let host = focused {
-            ZStack {
-                Color(hex: host.tintHex)
-                if let data = host.backdrop, let image = UIImage(data: data) {
-                    Image(uiImage: image).resizable().scaledToFill()
-                } else {
-                    Image(systemName: host.state.isPaired ? "desktopcomputer" : "lock.desktopcomputer")
-                        .font(.system(size: 260)).foregroundStyle(.white.opacity(0.25))
-                }
-                LinearGradient(colors: [.clear, .black.opacity(0.7)], startPoint: .center, endPoint: .bottom)
+        ZStack {
+            Color(hex: heroHost.map { $0.tintHex } ?? 0x101013)
+            if heroId != Self.addId, let data = heroHost?.backdrop, let image = UIImage(data: data) {
+                Image(uiImage: image).resizable().scaledToFill()
             }
-            .id(host.id)
-            .transition(.opacity)
         }
+        .id(heroId == Self.addId ? nil : heroHost?.id)
+        .transition(.opacity)
+        .animation(.easeInOut(duration: 0.6), value: heroHost?.id)
     }
 }
 #endif

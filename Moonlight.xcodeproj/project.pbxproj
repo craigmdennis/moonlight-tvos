@@ -3,10 +3,14 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 54;
+	objectVersion = 60;
 	objects = {
 
 /* Begin PBXBuildFile section */
+		1BEB82EF0E11D9DCF237028C /* HomeModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59B47C3733F134AC3127D83E /* HomeModel.swift */; };
+		B9B6FAC532E3F5B8D5EEB887 /* HomeScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = F925E77F77487921EF9AC31C /* HomeScreen.swift */; };
+		E99F94ECDCDC1966D8F10E1F /* HomeViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28B24A31E9C547146C638C99 /* HomeViewController.swift */; };
+		B595DC733DB0BC61F5DFD899 /* MoonlightKit in Frameworks */ = {isa = PBXBuildFile; productRef = 27CF40590C5C346D1A8F89BE /* MoonlightKit */; };
 		693B3A9B218638CD00982F7B /* Settings.bundle in Resources */ = {isa = PBXBuildFile; fileRef = 693B3A9A218638CD00982F7B /* Settings.bundle */; };
 		98181BE92791277400E43572 /* libSDL2.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 98181BE82791275D00E43572 /* libSDL2.a */; };
 		98181BEB2791278F00E43572 /* libSDL2.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 98181BEA2791278300E43572 /* libSDL2.a */; };
@@ -170,6 +174,10 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		A946A0D55BFA3AD39FB71160 /* StreamFrameConfigurable.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = StreamFrameConfigurable.h; sourceTree = "<group>"; };
+		59B47C3733F134AC3127D83E /* HomeModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeModel.swift; sourceTree = "<group>"; };
+		F925E77F77487921EF9AC31C /* HomeScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeScreen.swift; sourceTree = "<group>"; };
+		28B24A31E9C547146C638C99 /* HomeViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeViewController.swift; sourceTree = "<group>"; };
 		566E9D2B2770B23A00EF7BFE /* Moonlight v1.7.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = "Moonlight v1.7.xcdatamodel"; sourceTree = "<group>"; };
 		693B3A9A218638CD00982F7B /* Settings.bundle */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.plug-in"; path = Settings.bundle; sourceTree = "<group>"; };
 		9803CCAB254F9EAF00EE185E /* ConnectionCallbacks.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ConnectionCallbacks.h; sourceTree = "<group>"; };
@@ -327,6 +335,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B595DC733DB0BC61F5DFD899 /* MoonlightKit in Frameworks */,
 				9865DC30213260B40005B9B9 /* libmoonlight-common-tv.a in Frameworks */,
 				9865DC3C2132922E0005B9B9 /* GameController.framework in Frameworks */,
 				98882A0D2AF60FA000C5A11C /* libavformat.a in Frameworks */,
@@ -365,6 +374,16 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		FBB3A11ACA2CF4520567DD1F /* Home */ = {
+			isa = PBXGroup;
+			children = (
+				59B47C3733F134AC3127D83E /* HomeModel.swift */,
+				F925E77F77487921EF9AC31C /* HomeScreen.swift */,
+				28B24A31E9C547146C638C99 /* HomeViewController.swift */,
+			);
+			path = Home;
+			sourceTree = "<group>";
+		};
 		9896219423D15C2900211983 /* X1Kit */ = {
 			isa = PBXGroup;
 			children = (
@@ -385,6 +404,7 @@
 		FB1A67542132419700507771 /* Moonlight TV */ = {
 			isa = PBXGroup;
 			children = (
+				FBB3A11ACA2CF4520567DD1F /* Home */,
 				FB1A675E2132419700507771 /* Main.storyboard */,
 				FB1A67612132419A00507771 /* Assets.xcassets */,
 				FB1A67632132419A00507771 /* Info.plist */,
@@ -574,6 +594,7 @@
 				FB89462419F646E200339C8A /* MainFrameViewController.h */,
 				FB89462519F646E200339C8A /* MainFrameViewController.m */,
 				FB89462619F646E200339C8A /* StreamFrameViewController.h */,
+				A946A0D55BFA3AD39FB71160 /* StreamFrameConfigurable.h */,
 				FB89462719F646E200339C8A /* StreamFrameViewController.m */,
 				FBD3494E19FF2174002D2A60 /* SettingsViewController.h */,
 				FBD3494F19FF2174002D2A60 /* SettingsViewController.m */,
@@ -703,6 +724,7 @@
 			);
 			name = "Moonlight TV";
 			packageProductDependencies = (
+				27CF40590C5C346D1A8F89BE /* MoonlightKit */,
 				F74BEFA32C1A80E400224667 /* OpenSSL */,
 			);
 			productName = "Moonlight TV";
@@ -766,6 +788,7 @@
 			);
 			mainGroup = FB290CE519B2C406004C83CF;
 			packageReferences = (
+				F91E43131F18650E298FC24A /* XCLocalSwiftPackageReference "MoonlightKit" */,
 				F74BEF9A2C1A705600224667 /* XCRemoteSwiftPackageReference "OpenSSL-Package" */,
 			);
 			productRefGroup = FB290CEF19B2C406004C83CF /* Products */;
@@ -832,6 +855,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1BEB82EF0E11D9DCF237028C /* HomeModel.swift in Sources */,
+				B9B6FAC532E3F5B8D5EEB887 /* HomeScreen.swift in Sources */,
+				E99F94ECDCDC1966D8F10E1F /* HomeViewController.swift in Sources */,
 				9827E7A42514366900F25707 /* HapticContext.m in Sources */,
 				9897B6A62212732C00966419 /* Controller.m in Sources */,
 				9865DC3E21332D660005B9B9 /* MainFrameViewController.m in Sources */,
@@ -1023,7 +1049,7 @@
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 3;
-				TVOS_DEPLOYMENT_TARGET = "$(RECOMMENDED_TVOS_DEPLOYMENT_TARGET)";
+				TVOS_DEPLOYMENT_TARGET = 17.0;
 			};
 			name = Debug;
 		};
@@ -1079,7 +1105,7 @@
 				SWIFT_OBJC_INTERFACE_HEADER_NAME = "Moonlight-Swift.h";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 3;
-				TVOS_DEPLOYMENT_TARGET = "$(RECOMMENDED_TVOS_DEPLOYMENT_TARGET)";
+				TVOS_DEPLOYMENT_TARGET = 17.0;
 			};
 			name = Release;
 		};
@@ -1332,6 +1358,13 @@
 		};
 /* End XCConfigurationList section */
 
+/* Begin XCLocalSwiftPackageReference section */
+		F91E43131F18650E298FC24A /* XCLocalSwiftPackageReference "MoonlightKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = MoonlightKit;
+		};
+/* End XCLocalSwiftPackageReference section */
+
 /* Begin XCRemoteSwiftPackageReference section */
 		F74BEF9A2C1A705600224667 /* XCRemoteSwiftPackageReference "OpenSSL-Package" */ = {
 			isa = XCRemoteSwiftPackageReference;
@@ -1344,6 +1377,10 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		27CF40590C5C346D1A8F89BE /* MoonlightKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = MoonlightKit;
+		};
 		F74BEF9B2C1A705600224667 /* OpenSSL */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = F74BEF9A2C1A705600224667 /* XCRemoteSwiftPackageReference "OpenSSL-Package" */;
@@ -1385,3 +1422,4 @@
 	};
 	rootObject = FB290CE619B2C406004C83CF /* Project object */;
 }
+
