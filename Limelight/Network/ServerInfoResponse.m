@@ -95,6 +95,10 @@
         host.pairState = PairStateUnknown;
     }
     
+    // Apollo fork extension, only sent to paired clients allowed to see game activity
+    NSString *activeClient = [[self getStringTag:@"activeclient"] trim];
+    host.activeStreamClient = activeClient.length > 0 ? activeClient : nil;
+    
     NSString *serverCodecModeString = [self getStringTag:@"ServerCodecModeSupport"];
     if (serverCodecModeString != nil) {
         host.serverCodecModeSupport = [[serverCodecModeString trim] intValue];

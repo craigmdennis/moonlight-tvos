@@ -29,6 +29,10 @@
 - (NSURLRequest*) newLaunchOrResumeRequest:(NSString*)verb config:(StreamConfiguration*)config;
 - (NSURLRequest*) newQuitAppRequest;
 - (NSURLRequest*) newAppAssetRequestWithAppId:(NSString*)appId;
+- (NSURLRequest*) newSteamActivityRequest;
+- (NSURLRequest*) newSteamArtRequestWithAppId:(NSString*)appId kind:(NSString*)kind;
+- (NSURLRequest*) newWallpaperRequest;
+- (void) cancelActiveRequests;
 - (void) executeRequestSynchronously:(HttpRequest*)request;
 
 @end

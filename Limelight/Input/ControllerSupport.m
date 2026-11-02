@@ -20,6 +20,7 @@
 static const double MOUSE_SPEED_DIVISOR = 1.25;
 
 @implementation ControllerSupport {
+    BOOL _viewOnly;
     id _controllerConnectObserver;
     id _controllerDisconnectObserver;
     id _mouseConnectObserver;
@@ -334,7 +335,7 @@ static const double MOUSE_SPEED_DIVISOR = 1.25;
         }
         
         // Only send controller events if we successfully reported controller arrival
-        if ([self reportControllerArrival:controller]) {
+        if (!_viewOnly && [self reportControllerArrival:controller]) {
             uint32_t buttonFlags = controller.lastButtonFlags;
             uint8_t leftTrigger = controller.lastLeftTrigger;
             uint8_t rightTrigger = controller.lastRightTrigger;
@@ -1081,6 +1082,7 @@ static const double MOUSE_SPEED_DIVISOR = 1.25;
     _controllers = [[NSMutableDictionary alloc] init];
     _controllerNumbers = 0;
     _multiController = streamConfig.multiController;
+    _viewOnly = streamConfig.viewOnly;
     _swapABXYButtons = streamConfig.swapABXYButtons;
     _delegate = delegate;
 

@@ -31,6 +31,9 @@
     
     TemporaryHost *_host; // May be nil
     NSString* _baseHTTPSURL;
+    
+    NSMutableSet<NSURLSession*>* _activeSessions;
+    BOOL _cancelled;
 }
 
 + (NSData*) fixXmlVersion:(NSData*) xmlData {
@@ -122,6 +125,20 @@
     
     Log(LOG_D, @"Making Request: %@", request);
     NSURLSession* urlSession = [NSURLSession sessionWithConfiguration:[NSURLSessionConfiguration ephemeralSessionConfiguration] delegate:self delegateQueue:nil];
+    @synchronized (self) {
+        if (_cancelled) {
+            [urlSession invalidateAndCancel];
+            if (request.response) {
+                request.response.statusCode = ECANCELED;
+                request.response.statusMessage = @"Request cancelled";
+            }
+            return;
+        }
+        if (_activeSessions == nil) {
+            _activeSessions = [NSMutableSet set];
+        }
+        [_activeSessions addObject:urlSession];
+    }
     [[urlSession dataTaskWithRequest:request.request completionHandler:^(NSData * __nullable data, NSURLResponse * __nullable response, NSError * __nullable error) {
         
         if (error != NULL) {
@@ -146,6 +163,9 @@
     
     dispatch_semaphore_wait(requestLock, DISPATCH_TIME_FOREVER);
     [urlSession invalidateAndCancel];
+    @synchronized (self) {
+        [_activeSessions removeObject:urlSession];
+    }
     
     if (!respError && request.response) {
         [request.response populateWithData:requestResp];
@@ -302,6 +322,43 @@
     
     NSString* urlString = [NSString stringWithFormat:@"%@/appasset?uniqueid=%@&appid=%@&AssetType=2&AssetIdx=0", _baseHTTPSURL, _uniqueId, appId];
     return [self createRequestFromString:urlString timeout:NORMAL_TIMEOUT_SEC];
+}
+
+- (NSURLRequest*) newSteamActivityRequest {
+    if (![self ensureHttpsUrlPopulated:NO]) {
+        return nil;
+    }
+    
+    NSString* urlString = [NSString stringWithFormat:@"%@/moonlight/steam?uniqueid=%@", _baseHTTPSURL, _uniqueId];
+    return [self createRequestFromString:urlString timeout:NORMAL_TIMEOUT_SEC];
+}
+
+- (NSURLRequest*) newSteamArtRequestWithAppId:(NSString*)appId kind:(NSString*)kind {
+    if (![self ensureHttpsUrlPopulated:NO]) {
+        return nil;
+    }
+    
+    NSString* urlString = [NSString stringWithFormat:@"%@/moonlight/steam/art/%@/%@?uniqueid=%@", _baseHTTPSURL, appId, kind, _uniqueId];
+    return [self createRequestFromString:urlString timeout:NORMAL_TIMEOUT_SEC];
+}
+
+- (NSURLRequest*) newWallpaperRequest {
+    if (![self ensureHttpsUrlPopulated:NO]) {
+        return nil;
+    }
+    
+    NSString* urlString = [NSString stringWithFormat:@"%@/moonlight/wallpaper?uniqueid=%@", _baseHTTPSURL, _uniqueId];
+    return [self createRequestFromString:urlString timeout:LONG_TIMEOUT_SEC];
+}
+
+// Aborts in-flight requests and fails any later ones made through this manager
+- (void) cancelActiveRequests {
+    @synchronized (self) {
+        _cancelled = YES;
+        for (NSURLSession* session in _activeSessions) {
+            [session invalidateAndCancel];
+        }
+    }
 }
 
 - (NSString*) bytesToHex:(NSData*)data {

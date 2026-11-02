@@ -29,6 +29,13 @@
     return self;
 }
 
+- (void) cancel {
+    [super cancel];
+    
+    // Unblock the long-polling pair request so the operation finishes promptly
+    [_httpManager cancelActiveRequests];
+}
+
 - (void) main {
     // We have to call startPairing before calling any other _callback functions
     NSString* PIN = [self generatePIN];
@@ -68,7 +75,9 @@
         errorMsg = resp.statusMessage;
     }
     
-    [_callback pairFailed:errorMsg];
+    if (![self isCancelled]) {
+        [_callback pairFailed:errorMsg];
+    }
 }
 
 - (void) finishPairing:(UIBackgroundTaskIdentifier)bgId withSuccess:(NSData*)derCertBytes {

@@ -31,5 +31,7 @@
 @property BOOL multiController;
 @property BOOL useFramePacing;
 @property NSData* serverCert;
+// Watching another device's stream: nothing is sent to the PC except the exit combo
+@property BOOL viewOnly;
 
 @end

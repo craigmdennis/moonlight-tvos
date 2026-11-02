@@ -10,187 +10,13 @@
 			<key>Type</key>
 			<string>PSGroupSpecifier</string>
 			<key>Title</key>
-			<string>Basic Configuration</string>
+			<string>Video</string>
 		</dict>
 		<dict>
 			<key>Type</key>
 			<string>PSMultiValueSpecifier</string>
 			<key>Title</key>
-			<string>Stream Resolution</string>
-			<key>Key</key>
-			<string>streamResolution</string>
-			<key>DefaultValue</key>
-			<string>1</string>
-			<key>Values</key>
-			<array>
-				<string>0</string>
-				<string>1</string>
-				<string>3</string>
-				<string>2</string>
-			</array>
-			<key>Titles</key>
-			<array>
-				<string>720p</string>
-				<string>1080p</string>
-				<string>1440p</string>
-				<string>4K</string>
-			</array>
-		</dict>
-		<dict>
-			<key>Type</key>
-			<string>PSMultiValueSpecifier</string>
-			<key>Title</key>
-			<string>Frame Rate</string>
-			<key>Key</key>
-			<string>framerate</string>
-			<key>DefaultValue</key>
-			<string>60</string>
-			<key>Values</key>
-			<array>
-				<string>30</string>
-				<string>60</string>
-			</array>
-			<key>Titles</key>
-			<array>
-				<string>30 FPS</string>
-				<string>60 FPS</string>
-			</array>
-		</dict>
-		<dict>
-			<key>Type</key>
-			<string>PSMultiValueSpecifier</string>
-			<key>Title</key>
-			<string>Bitrate</string>
-			<key>Key</key>
-			<string>bitrate</string>
-			<key>DefaultValue</key>
-			<string>20000</string>
-			<key>Titles</key>
-			<array>
-				<string>0.5 Mbps</string>
-				<string>1 Mbps</string>
-				<string>2 Mbps</string>
-				<string>5 Mbps</string>
-				<string>10 Mbps</string>
-				<string>20 Mbps</string>
-				<string>25 Mbps</string>
-				<string>50 Mbps</string>
-				<string>70 Mbps</string>
-				<string>80 Mbps</string>
-				<string>100 Mbps</string>
-				<string>150 Mbps</string>
-			</array>
-			<key>Values</key>
-			<array>
-				<string>500</string>
-				<string>1000</string>
-				<string>2000</string>
-				<string>5000</string>
-				<string>10000</string>
-				<string>20000</string>
-				<string>25000</string>
-				<string>50000</string>
-				<string>70000</string>
-				<string>80000</string>
-				<string>100000</string>
-				<string>150000</string>
-			</array>
-		</dict>
-		<dict>
-			<key>Type</key>
-			<string>PSMultiValueSpecifier</string>
-			<key>Title</key>
-			<string>Audio Configuration</string>
-			<key>Key</key>
-			<string>audioConfig</string>
-			<key>DefaultValue</key>
-			<string>2</string>
-			<key>Titles</key>
-			<array>
-				<string>Stereo</string>
-				<string>LPCM 5.1</string>
-				<string>LPCM 7.1</string>
-			</array>
-			<key>Values</key>
-			<array>
-				<string>2</string>
-				<string>6</string>
-				<string>8</string>
-			</array>
-		</dict>
-		<dict>
-			<key>Type</key>
-			<string>PSGroupSpecifier</string>
-			<key>Title</key>
-			<string>Host Options</string>
-		</dict>
-		<dict>
-			<key>Type</key>
-			<string>PSToggleSwitchSpecifier</string>
-			<key>DefaultValue</key>
-			<false/>
-			<key>Title</key>
-			<string>Play Audio on Host PC</string>
-			<key>Key</key>
-			<string>audioOnPC</string>
-		</dict>
-		<dict>
-			<key>Type</key>
-			<string>PSToggleSwitchSpecifier</string>
-			<key>Title</key>
-			<string>Optimize Game Settings</string>
-			<key>Key</key>
-			<string>optimizeGames</string>
-			<key>DefaultValue</key>
-			<true/>
-		</dict>
-		<dict>
-			<key>Type</key>
-			<string>PSGroupSpecifier</string>
-			<key>Title</key>
-			<string>Input Options</string>
-		</dict>
-		<dict>
-			<key>Type</key>
-			<string>PSToggleSwitchSpecifier</string>
-			<key>Title</key>
-			<string>Automatic Game Controller Detection</string>
-			<key>Key</key>
-			<string>multipleControllers</string>
-			<key>DefaultValue</key>
-			<true/>
-		</dict>
-		<dict>
-			<key>Type</key>
-			<string>PSToggleSwitchSpecifier</string>
-			<key>Title</key>
-			<string>Swap A/B and X/Y Buttons</string>
-			<key>Key</key>
-			<string>swapABXYButtons</string>
-			<key>DefaultValue</key>
-			<false/>
-		</dict>
-		<dict>
-			<key>Type</key>
-			<string>PSToggleSwitchSpecifier</string>
-			<key>Title</key>
-			<string>Citrix X1 Mouse Support</string>
-			<key>Key</key>
-			<string>btMouseSupport</string>
-			<key>DefaultValue</key>
-			<false/>
-		</dict>
-		<dict>
-			<key>Type</key>
-			<string>PSGroupSpecifier</string>
-			<key>Title</key>
-			<string>Video Options</string>
-		</dict>
-		<dict>
-			<key>Type</key>
-			<string>PSMultiValueSpecifier</string>
-			<key>Title</key>
-			<string>Preferred Codec</string>
+			<string>Video Codec</string>
 			<key>Key</key>
 			<string>preferredCodec</string>
 			<key>DefaultValue</key>
@@ -198,21 +24,21 @@
 			<key>Values</key>
 			<array>
 				<string>0</string>
-				<string>1</string>
 				<string>2</string>
+				<string>1</string>
 			</array>
 			<key>Titles</key>
 			<array>
-				<string>Auto</string>
-				<string>H.264</string>
+				<string>Automatic</string>
 				<string>HEVC</string>
+				<string>H.264</string>
 			</array>
 		</dict>
 		<dict>
 			<key>Type</key>
 			<string>PSMultiValueSpecifier</string>
 			<key>Title</key>
-			<string>Frame Pacing Preference</string>
+			<string>Frame Pacing</string>
 			<key>Key</key>
 			<string>useFramePacing</string>
 			<key>DefaultValue</key>
@@ -230,11 +56,39 @@
 		</dict>
 		<dict>
 			<key>Type</key>
+			<string>PSGroupSpecifier</string>
+			<key>Title</key>
+			<string>Audio</string>
+		</dict>
+		<dict>
+			<key>Type</key>
+			<string>PSMultiValueSpecifier</string>
+			<key>Title</key>
+			<string>Audio Channels</string>
+			<key>Key</key>
+			<string>audioConfig</string>
+			<key>DefaultValue</key>
+			<string>2</string>
+			<key>Values</key>
+			<array>
+				<string>2</string>
+				<string>6</string>
+				<string>8</string>
+			</array>
+			<key>Titles</key>
+			<array>
+				<string>Stereo</string>
+				<string>5.1 Surround</string>
+				<string>7.1 Surround</string>
+			</array>
+		</dict>
+		<dict>
+			<key>Type</key>
 			<string>PSToggleSwitchSpecifier</string>
 			<key>Title</key>
-			<string>Request HDR Video</string>
+			<string>Play Audio on Computer</string>
 			<key>Key</key>
-			<string>enableHdr</string>
+			<string>audioOnPC</string>
 			<key>DefaultValue</key>
 			<false/>
 		</dict>
@@ -242,17 +96,43 @@
 			<key>Type</key>
 			<string>PSGroupSpecifier</string>
 			<key>Title</key>
-			<string>Troubleshooting</string>
+			<string>Controllers</string>
 		</dict>
 		<dict>
 			<key>Type</key>
 			<string>PSToggleSwitchSpecifier</string>
 			<key>Title</key>
-			<string>Statistics Overlay</string>
+			<string>Swap A/B and X/Y</string>
 			<key>Key</key>
-			<string>statsOverlay</string>
+			<string>swapABXYButtons</string>
 			<key>DefaultValue</key>
 			<false/>
+		</dict>
+		<dict>
+			<key>Type</key>
+			<string>PSToggleSwitchSpecifier</string>
+			<key>Title</key>
+			<string>Automatic Controller Detection</string>
+			<key>Key</key>
+			<string>multipleControllers</string>
+			<key>DefaultValue</key>
+			<true/>
+		</dict>
+		<dict>
+			<key>Type</key>
+			<string>PSGroupSpecifier</string>
+			<key>Title</key>
+			<string>Computer</string>
+		</dict>
+		<dict>
+			<key>Type</key>
+			<string>PSToggleSwitchSpecifier</string>
+			<key>Title</key>
+			<string>Optimize Game Settings</string>
+			<key>Key</key>
+			<string>optimizeGames</string>
+			<key>DefaultValue</key>
+			<true/>
 		</dict>
 	</array>
 </dict>

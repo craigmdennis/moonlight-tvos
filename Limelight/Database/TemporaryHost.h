@@ -26,6 +26,10 @@
 @property (atomic, nullable, retain) NSString *mac;
 @property (atomic)                   int serverCodecModeSupport;
 
+// Apollo fork extension: the device streaming right now, nil when nobody streams
+// or the host withholds it
+@property (atomic, nullable, retain) NSString *activeStreamClient;
+
 NS_ASSUME_NONNULL_BEGIN
 
 @property (atomic, retain) NSString *name;

@@ -109,6 +109,10 @@
     
     _streamView = [[StreamView alloc] initWithFrame:self.view.frame];
     [_streamView setupStreamView:_controllerSupport interactionDelegate:self config:self.streamConfig];
+    if (self.streamConfig.viewOnly) {
+        // Remote touches and keyboards would move the other device's game
+        _streamView.userInteractionEnabled = NO;
+    }
     
 #if TARGET_OS_TV
     if (!_menuTapGestureRecognizer || !_menuDoubleTapGestureRecognizer || !_playPauseTapGestureRecognizer) {
@@ -389,6 +393,16 @@
     });
 }
 
+// Hands a failure back to the home screen; returns NO when there is no handler
+- (BOOL) reportFailure:(NSString*)kind message:(NSString*)message {
+    if (self.failureHandler == nil) {
+        return NO;
+    }
+    self.failureHandler(kind, message);
+    [self returnToMainFrame];
+    return YES;
+}
+
 - (void)connectionTerminated:(int)errorCode {
     Log(LOG_I, @"Connection terminated: %d", errorCode);
     
@@ -398,6 +412,10 @@
     dispatch_async(dispatch_get_main_queue(), ^{
         // Allow the display to go to sleep now
         [UIApplication sharedApplication].idleTimerDisabled = NO;
+        
+        if (errorCode != ML_ERROR_GRACEFUL_TERMINATION && [self reportFailure:@"dropped" message:nil]) {
+            return;
+        }
         
         NSString* title;
         NSString* message;
@@ -494,6 +512,9 @@
         [UIApplication sharedApplication].idleTimerDisabled = NO;
         
         NSString* message = [NSString stringWithFormat:@"%s failed with error %d", stageName, errorCode];
+        if ([self reportFailure:@"connect" message:message]) {
+            return;
+        }
         if (portTestFlags != 0) {
             char failingPorts[256];
             LiStringifyPortFlags(portTestFlags, "\n", failingPorts, sizeof(failingPorts));
@@ -522,6 +543,10 @@
     dispatch_async(dispatch_get_main_queue(), ^{
         // Allow the display to go to sleep now
         [UIApplication sharedApplication].idleTimerDisabled = NO;
+        
+        if ([self reportFailure:@"launch" message:message]) {
+            return;
+        }
         
         UIAlertController* alert = [UIAlertController alertControllerWithTitle:@"Connection Error"
                                                                        message:message

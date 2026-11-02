@@ -21,7 +21,9 @@
     NSString* settingsBundle = [[NSBundle mainBundle] pathForResource:@"Settings" ofType:@"bundle"];
     NSDictionary* settingsData = [NSDictionary dictionaryWithContentsOfFile:[settingsBundle stringByAppendingPathComponent:@"Root.plist"]];
     NSArray* preferences = [settingsData objectForKey:@"PreferenceSpecifiers"];
-    NSMutableDictionary* defaultsToRegister = [[NSMutableDictionary alloc] initWithCapacity:[preferences count]];
+    // Stream settings moved to the in-app panel, so their defaults live here
+    NSMutableDictionary* defaultsToRegister = [@{@"streamResolution": @4, @"framerate": @60, @"bitrate": @0,
+                                                 @"enableHdr": @NO, @"statsOverlay": @NO, @"btMouseSupport": @NO} mutableCopy];
     for (NSDictionary* prefSpecification in preferences) {
         NSString* key = [prefSpecification objectForKey:@"Key"];
         if (key != nil) {
@@ -31,7 +33,6 @@
     [[NSUserDefaults standardUserDefaults] registerDefaults:defaultsToRegister];
     
     self.bitrate = [NSNumber numberWithInteger:[[NSUserDefaults standardUserDefaults] integerForKey:@"bitrate"]];
-    assert([self.bitrate intValue] != 0);
     self.framerate = [NSNumber numberWithInteger:[[NSUserDefaults standardUserDefaults] integerForKey:@"framerate"]];
     assert([self.framerate intValue] != 0);
     self.audioConfig = [NSNumber numberWithInteger:[[NSUserDefaults standardUserDefaults] integerForKey:@"audioConfig"]];
@@ -64,8 +65,22 @@
             self.height = [NSNumber numberWithInteger:1440];
             self.width = [NSNumber numberWithInteger:2560];
             break;
+        case 4: {
+            // Match TV: the screen's native resolution, capped at 4K
+            CGSize native = [UIScreen mainScreen].nativeBounds.size;
+            BOOL uhd = MAX(native.width, native.height) >= 3840;
+            self.height = [NSNumber numberWithInteger:uhd ? 2160 : 1080];
+            self.width = [NSNumber numberWithInteger:uhd ? 3840 : 1920];
+            break;
+        }
         default:
             abort();
+    }
+    
+    // Automatic bitrate: 20 Mbps for 1080p60, scaled by pixels per second
+    if ([self.bitrate intValue] == 0) {
+        double scale = ([self.width doubleValue] * [self.height doubleValue] * [self.framerate doubleValue]) / (1920.0 * 1080.0 * 60.0);
+        self.bitrate = [NSNumber numberWithInt:MIN(150000, MAX(5000, (int)(20000 * scale)))];
     }
     self.onscreenControls = [NSNumber numberWithInteger:OnScreenControlsLevelOff];
 #else
