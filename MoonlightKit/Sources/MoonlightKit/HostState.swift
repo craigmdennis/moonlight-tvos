@@ -100,7 +100,7 @@ public extension HostCardState {
     }
 }
 
-public enum HoldMenuItem: Equatable, Sendable {
+public enum HoldMenuItem: Hashable, Sendable {
     case openBigPicture
     case openDesktop
     case quit(appName: String)

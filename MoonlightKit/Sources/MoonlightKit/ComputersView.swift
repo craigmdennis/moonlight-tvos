@@ -22,6 +22,12 @@ public struct HostTileModel: Identifiable, Equatable, Sendable {
     }
 }
 
+/// Tile size: the design's 280 by 396 portrait, scaled up for viewing from the sofa.
+enum Tile {
+    static let width: CGFloat = 320
+    static let height: CGFloat = 452
+}
+
 extension Color {
     init(hex: UInt32) {
         self.init(red: Double((hex >> 16) & 0xFF) / 255, green: Double((hex >> 8) & 0xFF) / 255, blue: Double(hex & 0xFF) / 255)
@@ -119,22 +125,28 @@ struct BadgeView: View {
     let busy: Bool
 
     var body: some View {
-        Group {
-            if busy {
-                ProgressView().frame(width: 32, height: 32)
-            } else {
-                HStack(spacing: 10) {
-                    switch badge {
-                    case .notPaired:
-                        Image(systemName: "lock.fill").font(.system(size: 18))
-                    case .inUse:
-                        Image(systemName: "gamecontroller.fill").font(.system(size: 17)).foregroundStyle(Color(hex: badge.hex))
-                    default:
-                        Circle().fill(Color(hex: badge.hex)).frame(width: 13, height: 13)
-                    }
-                    Text(badge.rawValue).font(.system(size: 22, weight: .semibold))
-                }
+        if busy {
+            // The design's 40-point glass chip with a small spinner
+            ProgressView()
+                .scaleEffect(0.55)
+                .frame(width: 40, height: 40)
+                .modifier(GlassCapsule())
+        } else {
+            label
+        }
+    }
+
+    private var label: some View {
+        HStack(spacing: 10) {
+            switch badge {
+            case .notPaired:
+                Image(systemName: "lock.fill").font(.system(size: 18))
+            case .inUse:
+                Image(systemName: "gamecontroller.fill").font(.system(size: 17)).foregroundStyle(Color(hex: badge.hex))
+            default:
+                Circle().fill(Color(hex: badge.hex)).frame(width: 13, height: 13)
             }
+            Text(badge.rawValue).font(.system(size: 22, weight: .semibold))
         }
         .foregroundStyle(.white)
         .padding(.horizontal, 16)
@@ -169,7 +181,7 @@ struct HostTileView: View {
         .overlay(alignment: .topTrailing) {
             BadgeView(badge: model.state.badge, busy: model.state.isBusy).padding(16)
         }
-        .frame(width: 280, height: 396)
+        .frame(width: Tile.width, height: Tile.height)
         .clipped()
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(model.name), \(model.state.badge.rawValue). Press to play, hold for options.")
@@ -184,6 +196,8 @@ public struct ComputersView: View {
     public let hosts: [HostTileModel]
     public let addLine: StatusLine
     public let pin: String?
+    /// True while the settings panel covers the screen and these controls are disabled.
+    public var isCovered: Bool
     public var onPress: (String) -> Void
     public var onMenu: (String, HoldMenuItem) -> Void
     public var onAdd: () -> Void
@@ -195,9 +209,10 @@ public struct ComputersView: View {
     @State private var heroId: String?
 
     public init(hosts: [HostTileModel], addLine: StatusLine, pin: String?,
+                isCovered: Bool = false,
                 onPress: @escaping (String) -> Void, onMenu: @escaping (String, HoldMenuItem) -> Void,
                 onAdd: @escaping () -> Void, onSettings: @escaping () -> Void, onFocus: @escaping (String?) -> Void) {
-        self.hosts = hosts; self.addLine = addLine; self.pin = pin
+        self.hosts = hosts; self.addLine = addLine; self.pin = pin; self.isCovered = isCovered
         self.onPress = onPress; self.onMenu = onMenu; self.onAdd = onAdd; self.onSettings = onSettings; self.onFocus = onFocus
     }
 
@@ -256,7 +271,7 @@ public struct ComputersView: View {
                                 .buttonStyle(.card)
                                 .focused($focus, equals: host.id)
                                 .contextMenu {
-                                    ForEach(Array(host.menu.enumerated()), id: \.offset) { _, item in
+                                    ForEach(host.menu, id: \.self) { item in
                                         Button(role: item == .removeComputer ? .destructive : nil) {
                                             onMenu(host.id, item)
                                         } label: {
@@ -269,7 +284,7 @@ public struct ComputersView: View {
                             Image(systemName: "plus.circle.fill")
                                 .font(.system(size: 54))
                                 .foregroundStyle(.white.opacity(0.85))
-                                .frame(width: 280, height: 396)
+                                .frame(width: Tile.width, height: Tile.height)
                                 .background(Color(hex: 0x101013).opacity(0.4))
                         }
                         .buttonStyle(.card)
@@ -279,6 +294,8 @@ public struct ComputersView: View {
                     .padding(.horizontal, 80)
                     .padding(.vertical, 40)
                 }
+                // Only as tall as the tiles, so the spacer above pushes the row to the bottom
+                .frame(height: Tile.height + 80)
                 .scrollClipDisabled()
                 .focusSection()
                 .padding(.bottom, 60)
@@ -287,10 +304,19 @@ public struct ComputersView: View {
         .ignoresSafeArea()
         .animation(.easeOut(duration: 0.3), value: heroId)
         .onChange(of: focus) { _, newValue in
-            if let newValue, newValue != "settings" {
+            // Focus going to the settings panel (or nowhere) isn't moving off this computer.
+            // Reporting nil here would cancel a pairing request whose PIN is still on screen.
+            guard let newValue else { return }
+            if newValue != "settings" {
                 heroId = newValue
             }
             onFocus(newValue == "settings" ? heroId : newValue)
+        }
+        .onChange(of: isCovered) { _, covered in
+            // Disabling these controls drops focus, and tvOS doesn't always give it back when they
+            // return, which leaves the remote doing nothing. Put it back on the gear button.
+            guard !covered else { return }
+            DispatchQueue.main.async { focus = "settings" }
         }
     }
 
