@@ -2,27 +2,42 @@
 //  HomeViewController.swift
 //  Moonlight TV
 //
-//  Hosts the SwiftUI home screen as the storyboard's root, and pushes the
+//  The storyboard's root. It embeds the SwiftUI home screen and pushes the
 //  unchanged StreamFrameViewController through the createStreamFrame segue.
+//
+//  The storyboard finds this class by name through the Objective-C runtime,
+//  which can't look up subclasses of generic classes such as UIHostingController.
+//  So this is a plain view controller that holds the hosting controller as a child.
 //
 
 import SwiftUI
 
 @objc(HomeViewController)
-final class HomeViewController: UIHostingController<HomeScreen> {
-    private let model: HomeModel
+final class HomeViewController: UIViewController {
+    private let model = HomeModel()
+    private var hosting: UIHostingController<HomeScreen>!
     private var pendingConfig: StreamConfiguration?
     private var pendingHostId: String?
 
-    required init?(coder: NSCoder) {
-        let model = HomeModel()
-        self.model = model
-        super.init(coder: coder, rootView: HomeScreen(model: model))
+    override func viewDidLoad() {
+        super.viewDidLoad()
+
+        hosting = UIHostingController(rootView: HomeScreen(model: model))
+        addChild(hosting)
+        hosting.view.frame = view.bounds
+        hosting.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        view.addSubview(hosting.view)
+        hosting.didMove(toParent: self)
+
         model.startStream = { [weak self] config, hostId in
             self?.pendingConfig = config
             self?.pendingHostId = hostId
             self?.performSegue(withIdentifier: "createStreamFrame", sender: nil)
         }
+    }
+
+    override var preferredFocusEnvironments: [UIFocusEnvironment] {
+        [hosting]
     }
 
     override func viewWillAppear(_ animated: Bool) {

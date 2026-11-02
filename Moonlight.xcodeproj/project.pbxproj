@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		8F872A364FFF7B3A3D3812F8 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4208F2ED1A57E24E8376FE2B /* SceneDelegate.swift */; };
 		1BEB82EF0E11D9DCF237028C /* HomeModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59B47C3733F134AC3127D83E /* HomeModel.swift */; };
 		B9B6FAC532E3F5B8D5EEB887 /* HomeScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = F925E77F77487921EF9AC31C /* HomeScreen.swift */; };
 		E99F94ECDCDC1966D8F10E1F /* HomeViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28B24A31E9C547146C638C99 /* HomeViewController.swift */; };
@@ -174,6 +175,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		4208F2ED1A57E24E8376FE2B /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 		A946A0D55BFA3AD39FB71160 /* StreamFrameConfigurable.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = StreamFrameConfigurable.h; sourceTree = "<group>"; };
 		59B47C3733F134AC3127D83E /* HomeModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeModel.swift; sourceTree = "<group>"; };
 		F925E77F77487921EF9AC31C /* HomeScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeScreen.swift; sourceTree = "<group>"; };
@@ -377,6 +379,7 @@
 		FBB3A11ACA2CF4520567DD1F /* Home */ = {
 			isa = PBXGroup;
 			children = (
+				4208F2ED1A57E24E8376FE2B /* SceneDelegate.swift */,
 				59B47C3733F134AC3127D83E /* HomeModel.swift */,
 				F925E77F77487921EF9AC31C /* HomeScreen.swift */,
 				28B24A31E9C547146C638C99 /* HomeViewController.swift */,
@@ -855,6 +858,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				8F872A364FFF7B3A3D3812F8 /* SceneDelegate.swift in Sources */,
 				1BEB82EF0E11D9DCF237028C /* HomeModel.swift in Sources */,
 				B9B6FAC532E3F5B8D5EEB887 /* HomeScreen.swift in Sources */,
 				E99F94ECDCDC1966D8F10E1F /* HomeViewController.swift in Sources */,

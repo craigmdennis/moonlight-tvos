@@ -9,6 +9,7 @@
 #import <CoreData/CoreData.h>
 #import "Logger.h"
 #import "AppAssetResponse.h"
+#import "AppDelegate.h"
 #import "AppListResponse.h"
 #import "ConnectionHelper.h"
 #import "ControllerSupport.h"
