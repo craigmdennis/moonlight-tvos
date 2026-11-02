@@ -4,3 +4,6 @@
 .DS_Store
 Build
 DerivedData
+
+# Field notes working area (local only, never committed)
+.field-notes/
