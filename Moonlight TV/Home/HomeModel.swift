@@ -9,6 +9,7 @@
 
 import AVFoundation
 import Combine
+import CryptoKit
 import UIKit
 import VideoToolbox
 import MoonlightKit
@@ -258,7 +259,9 @@ final class HomeModel: NSObject, ObservableObject, DiscoveryCallback {
     private func store(_ id: String) -> SteamActivityStore? {
         guard let host = hosts[id] else { return nil }
         if let store = stores[id] { return store }
-        let store = SteamActivityStore(hostID: id, directory: Self.cacheDirectory, api: HttpManagerHostAPI(host: host), cdn: URLSessionCDN())
+        // The id comes from the host's own reply, so it never names a folder directly
+        let folder = SHA256.hash(data: Data(id.utf8)).map { String(format: "%02x", $0) }.joined()
+        let store = SteamActivityStore(hostID: folder, directory: Self.cacheDirectory, api: HttpManagerHostAPI(host: host), cdn: URLSessionCDN())
         stores[id] = store
         return store
     }
