@@ -1009,6 +1009,7 @@
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = C56P94M635;
 				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
@@ -1041,7 +1042,7 @@
 				);
 				MARKETING_VERSION = 9.0.2;
 				MTL_ENABLE_DEBUG_INFO = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.moonlight-stream.Moonlight";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.tungstendesign.moonlight-tv";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = appletvos;
 				SWIFT_OBJC_BRIDGING_HEADER = "Limelight/Input/Moonlight-Bridging-Header.h";
@@ -1064,6 +1065,7 @@
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = C56P94M635;
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
@@ -1097,7 +1099,7 @@
 				);
 				MARKETING_VERSION = 9.0.2;
 				MTL_ENABLE_DEBUG_INFO = NO;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.moonlight-stream.Moonlight";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.tungstendesign.moonlight-tv";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = appletvos;
 				SWIFT_COMPILATION_MODE = wholemodule;
