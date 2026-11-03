@@ -1,13 +1,13 @@
 {
   "images" : [
     {
+      "filename" : "Middle.png",
       "idiom" : "tv",
-      "filename" : "Wedges.png",
       "scale" : "1x"
     },
     {
+      "filename" : "Middle@2x.png",
       "idiom" : "tv",
-      "filename" : "Wedges@2.png",
       "scale" : "2x"
     }
   ],
