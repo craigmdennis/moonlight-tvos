@@ -95,8 +95,12 @@
         host.pairState = PairStateUnknown;
     }
     
-    // Apollo fork extension, only sent to paired clients allowed to see game activity
-    NSString *activeClient = [[self getStringTag:@"activeclient"] trim];
+    // Apollo fork extension, only sent to paired clients allowed to see game activity.
+    // Apollo always sends the element, empty when nobody streams; stock Sunshine sends
+    // no element at all, which is how the two are told apart.
+    NSString *activeClientTag = [self getStringTag:@"activeclient"];
+    host.reportsActiveClient = activeClientTag != nil;
+    NSString *activeClient = [activeClientTag trim];
     host.activeStreamClient = activeClient.length > 0 ? activeClient : nil;
     
     NSString *serverCodecModeString = [self getStringTag:@"ServerCodecModeSupport"];

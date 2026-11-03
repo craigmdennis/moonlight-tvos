@@ -29,6 +29,9 @@
 // Apollo fork extension: the device streaming right now, nil when nobody streams
 // or the host withholds it
 @property (atomic, nullable, retain) NSString *activeStreamClient;
+// True when the host sends the element at all. Apollo always does (empty when nobody
+// streams); stock Sunshine never does, so a running app means somebody else is streaming.
+@property (atomic) BOOL reportsActiveClient;
 
 NS_ASSUME_NONNULL_BEGIN
 

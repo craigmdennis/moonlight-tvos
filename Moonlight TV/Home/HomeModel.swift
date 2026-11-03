@@ -222,10 +222,18 @@ final class HomeModel: NSObject, ObservableObject, DiscoveryCallback {
         case .idle:
             if !isPaired(host) { return .notPaired }
             guard host.state == .online else { return .offline }
-            // In Use only while another device streams; an app left running from an
-            // earlier session of this TV just resumes
-            return host.activeStreamClient != nil ? .inUse : .online
+            return inUse(host) ? .inUse : .online
         }
+    }
+
+    /// True while another device streams from this host. An app left running from an earlier
+    /// session of this TV just resumes, so it doesn't count.
+    private func inUse(_ host: TemporaryHost) -> Bool {
+        if let client = host.activeStreamClient, !client.isEmpty { return true }
+        // Stock Sunshine and Apollo send no activeclient element, so there a running app
+        // (currentgame above zero, which those servers only report while busy) is another
+        // device streaming. Apollo always sends the element and leaves it empty instead.
+        return !host.reportsActiveClient && appRunning(host)
     }
 
     private static let palette: [UInt32] = [0x3A5BA0, 0x2E7A68, 0x4A4A52, 0x2E3440, 0x3A3A44]
