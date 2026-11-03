@@ -163,7 +163,11 @@ struct HostTileView: View {
         ZStack(alignment: .bottomLeading) {
             Color(hex: model.tintHex)
             if let data = model.tileArt, let image = UIImage(data: data) {
+                // Pinned to the tile: a fill-scaled image reports a far larger size, which would
+                // push the name out of the tile's bounds and clip it away
                 Image(uiImage: image).resizable().scaledToFill()
+                    .frame(width: Tile.width, height: Tile.height)
+                    .clipped()
             } else {
                 Image(systemName: model.state.isPaired ? "desktopcomputer" : "lock.desktopcomputer")
                     .font(.system(size: 90))
@@ -193,6 +197,11 @@ struct HostTileView: View {
 public struct ComputersView: View {
     public static let addId = "add"
 
+    /// Distance from the screen edge to the row and the hero, equal on the left and the bottom.
+    private static let margin: CGFloat = 80
+    /// Room above and below the tiles inside the scroll view, so a focused card can grow.
+    private static let rowInset: CGFloat = 40
+
     public let hosts: [HostTileModel]
     public let addLine: StatusLine
     public let pin: String?
@@ -207,6 +216,9 @@ public struct ComputersView: View {
     @FocusState private var focus: String?
     /// The tile the hero describes. It stays put while focus is up on Settings.
     @State private var heroId: String?
+    /// Where the incoming hero starts, 80 points from the direction focus travelled.
+    @State private var heroShift: CGFloat = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     public init(hosts: [HostTileModel], addLine: StatusLine, pin: String?,
                 isCovered: Bool = false,
@@ -227,7 +239,6 @@ public struct ComputersView: View {
 
     public var body: some View {
         ZStack(alignment: .topLeading) {
-            backdrop
             LinearGradient(stops: [.init(color: Color(hex: 0x101013).opacity(0.94), location: 0),
                                    .init(color: Color(hex: 0x101013).opacity(0.72), location: 0.42),
                                    .init(color: Color(hex: 0x101013).opacity(0.15), location: 0.78)],
@@ -243,8 +254,8 @@ public struct ComputersView: View {
                     PinView(pin: pin)
                 }
             }
-            .padding(.leading, 80)
-            .padding(.top, 80)
+            .padding(.leading, Self.margin)
+            .padding(.top, Self.margin)
             .id(heroId)
             .transition(.opacity)
 
@@ -259,7 +270,7 @@ public struct ComputersView: View {
                     .focused($focus, equals: "settings")
                 }
                 .padding(.top, 60)
-                .padding(.trailing, 80)
+                .padding(.trailing, Self.margin)
                 .focusSection()
 
                 Spacer()
@@ -291,24 +302,29 @@ public struct ComputersView: View {
                         .accessibilityLabel("Add Computer")
                         .focused($focus, equals: Self.addId)
                     }
-                    .padding(.horizontal, 80)
-                    .padding(.vertical, 40)
+                    .padding(.horizontal, Self.margin)
+                    .padding(.vertical, Self.rowInset)
                 }
                 // Only as tall as the tiles, so the spacer above pushes the row to the bottom
-                .frame(height: Tile.height + 80)
+                .frame(height: Tile.height + Self.rowInset * 2)
                 .scrollClipDisabled()
                 .focusSection()
-                .padding(.bottom, 60)
+                // The inset above is inside the scroll view, so take it off the margin to make
+                // the gap below the tiles match the gap to the left of them
+                .padding(.bottom, Self.margin - Self.rowInset)
             }
         }
         .ignoresSafeArea()
+        // The backdrop is painted behind everything and given the screen's size, so a hero image
+        // can never widen this stack and push the tiles off the screen.
+        .background { backdrop }
         .animation(.easeOut(duration: 0.3), value: heroId)
         .onChange(of: focus) { _, newValue in
             // Focus going to the settings panel (or nowhere) isn't moving off this computer.
             // Reporting nil here would cancel a pairing request whose PIN is still on screen.
             guard let newValue else { return }
             if newValue != "settings" {
-                heroId = newValue
+                moveHero(to: newValue)
             }
             onFocus(newValue == "settings" ? heroId : newValue)
         }
@@ -320,16 +336,50 @@ public struct ComputersView: View {
         }
     }
 
+    /// The hero cross-fades and shifts 80 points when focus moves, per the brief. With Reduce
+    /// Motion it only cross-fades.
+    private func moveHero(to id: String) {
+        guard id != heroId else { return }
+        guard !reduceMotion else {
+            heroId = id
+            return
+        }
+        heroShift = direction(to: id) * 80
+        heroId = id
+        // Let the new hero land offset, then slide it home: the fade is 0.3 s, the shift 0.45 s
+        DispatchQueue.main.async {
+            withAnimation(.easeOut(duration: 0.45)) { heroShift = 0 }
+        }
+    }
+
+    /// Which way focus travelled along the row, so the incoming hero enters from that side.
+    private func direction(to id: String) -> CGFloat {
+        guard let from = heroId else { return 0 }
+        let order = hosts.map(\.id) + [Self.addId]
+        guard let a = order.firstIndex(of: from), let b = order.firstIndex(of: id) else { return 0 }
+        return b > a ? 1 : (b < a ? -1 : 0)
+    }
+
+    /// Painter, not a layout child: GeometryReader pins it to the proposed size and clipping keeps a
+    /// fill-scaled hero from spilling out, so only the art moves when focus changes.
     @ViewBuilder private var backdrop: some View {
-        ZStack {
-            Color(hex: heroHost.map { $0.tintHex } ?? 0x101013)
-            if heroId != Self.addId, let data = heroHost?.backdrop, let image = UIImage(data: data) {
-                Image(uiImage: image).resizable().scaledToFill()
+        GeometryReader { proxy in
+            ZStack {
+                Color(hex: heroHost.map { $0.tintHex } ?? 0x101013)
+                if heroId != Self.addId, let data = heroHost?.backdrop, let image = UIImage(data: data) {
+                    Image(uiImage: image).resizable().scaledToFill()
+                        // 80 points of slack each side, so the entry shift never shows an edge
+                        .frame(width: proxy.size.width + 160, height: proxy.size.height)
+                        .offset(x: heroShift)
+                        .animation(.easeOut(duration: 0.45), value: heroShift)
+                }
             }
+            .frame(width: proxy.size.width, height: proxy.size.height)
+            .clipped()
         }
         .id(heroId == Self.addId ? nil : heroHost?.id)
         .transition(.opacity)
-        .animation(.easeInOut(duration: 0.6), value: heroHost?.id)
+        .animation(.easeInOut(duration: 0.3), value: heroHost?.id)
     }
 }
 #endif
