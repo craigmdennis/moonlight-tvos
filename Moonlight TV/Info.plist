@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Moonlight</string>
+	<string>Selene</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -41,15 +41,15 @@
 		<true/>
 	</dict>
 	<key>NSBluetoothAlwaysUsageDescription</key>
-	<string>Bluetooth access allows Moonlight to connect to Citrix X1 mice.</string>
+	<string>Bluetooth access allows Selene to connect to Citrix X1 mice.</string>
 	<key>NSBluetoothPeripheralUsageDescription</key>
-	<string>Bluetooth access allows Moonlight to connect to Citrix X1 mice.</string>
+	<string>Bluetooth access allows Selene to connect to Citrix X1 mice.</string>
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_nvstream._tcp</string>
 	</array>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>Moonlight uses the local network to connect to your gaming PC for streaming.</string>
+	<string>Selene uses the local network to connect to your gaming PC for streaming.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
