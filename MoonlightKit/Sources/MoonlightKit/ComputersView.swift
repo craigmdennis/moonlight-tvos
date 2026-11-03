@@ -53,6 +53,7 @@ extension HoldMenuItem {
         switch self {
         case .openBigPicture: "Open Steam Big Picture"
         case .openDesktop: "Open Desktop"
+        case .sleep: "Sleep"
         case .quit(let app): "Quit \(app)"
         case .testNetwork: "Test Network"
         case .removeComputer: "Remove Computer"
@@ -63,6 +64,7 @@ extension HoldMenuItem {
         switch self {
         case .openBigPicture: "gamecontroller"
         case .openDesktop: "display"
+        case .sleep: "moon.zzz.fill"
         case .quit: "xmark.circle"
         case .testNetwork: "wifi"
         case .removeComputer: "trash"
@@ -288,6 +290,9 @@ public struct ComputersView: View {
                                         } label: {
                                             Label(item.title, systemImage: item.symbol)
                                         }
+                                        // Visible but dimmed, and skipped by the remote,
+                                        // while the host cannot take the command
+                                        .disabled(!isEnabled(item, in: host.state))
                                     }
                                     if host.menu.contains(.removeComputer) {
                                         // A system menu divider keeps Remove apart from everything else

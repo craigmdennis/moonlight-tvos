@@ -32,6 +32,7 @@
 - (NSURLRequest*) newSteamActivityRequest;
 - (NSURLRequest*) newSteamArtRequestWithAppId:(NSString*)appId kind:(NSString*)kind;
 - (NSURLRequest*) newWallpaperRequest;
+- (NSURLRequest*) newSleepRequest;
 - (void) cancelActiveRequests;
 - (void) executeRequestSynchronously:(HttpRequest*)request;
 

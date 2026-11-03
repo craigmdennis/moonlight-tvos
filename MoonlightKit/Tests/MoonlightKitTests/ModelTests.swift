@@ -90,11 +90,27 @@ import Testing
     }
 
     @Test func buildsTheHoldMenu() {
-        #expect(holdMenu(for: .online, runningAppName: nil) == [.openBigPicture, .openDesktop, .testNetwork, .removeComputer])
-        #expect(holdMenu(for: .online, runningAppName: "Steam Big Picture") == [.openBigPicture, .openDesktop, .quit(appName: "Steam Big Picture"), .testNetwork, .removeComputer])
+        #expect(holdMenu(for: .online, runningAppName: nil) == [.openBigPicture, .openDesktop, .sleep, .testNetwork, .removeComputer])
+        #expect(holdMenu(for: .online, runningAppName: "Steam Big Picture") == [.openBigPicture, .openDesktop, .quit(appName: "Steam Big Picture"), .sleep, .testNetwork, .removeComputer])
         #expect(holdMenu(for: .inUse, runningAppName: "Desktop").contains(.quit(appName: "Desktop")))
         #expect(!holdMenu(for: .offline, runningAppName: "x").contains(.quit(appName: "x")))
         #expect(holdMenu(for: .notPaired, runningAppName: nil) == [.testNetwork, .removeComputer])
+    }
+
+    @Test func sleepIsOfferedButDisabledWhileTheHostCannotAnswer() {
+        // An offline PC keeps the item, so the menu never reorders, but it cannot be chosen
+        #expect(holdMenu(for: .offline, runningAppName: nil).contains(.sleep))
+        #expect(!isEnabled(.sleep, in: .offline))
+        #expect(!isEnabled(.sleep, in: .waking))
+        #expect(!isEnabled(.sleep, in: .inUse))
+        #expect(!isEnabled(.sleep, in: .error(.other)))
+        #expect(isEnabled(.sleep, in: .online))
+
+        // Everything else stays choosable
+        for state in [HostCardState.offline, .inUse, .error(.other)] {
+            #expect(isEnabled(.openBigPicture, in: state))
+            #expect(isEnabled(.testNetwork, in: state))
+        }
     }
 
     @Test func classifiesLaunchFailuresByCodeAndMessage() {
@@ -153,7 +169,7 @@ import Testing
     }
 
     @Test func aNetworkTestResultReplacesTheLine() {
-        let h = HostSnapshot(name: "PC", state: .online, activity: .activity(game()), networkTest: "Network test: ports open")
+        let h = HostSnapshot(name: "PC", state: .online, activity: .activity(game()), notice: "Network test: ports open")
         #expect(statusLine(for: h) == StatusLine(.none, "Network test: ports open"))
     }
 

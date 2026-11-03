@@ -351,6 +351,19 @@
     return [self createRequestFromString:urlString timeout:LONG_TIMEOUT_SEC];
 }
 
+// Sleeps the PC. POST because it changes the host's state.
+- (NSURLRequest*) newSleepRequest {
+    if (![self ensureHttpsUrlPopulated:NO]) {
+        return nil;
+    }
+    
+    NSString* urlString = [NSString stringWithFormat:@"%@/moonlight/sleep?uniqueid=%@", _baseHTTPSURL, _uniqueId];
+    NSMutableURLRequest* request = [[self createRequestFromString:urlString timeout:NORMAL_TIMEOUT_SEC] mutableCopy];
+    request.HTTPMethod = @"POST";
+    [request setValue:@"0" forHTTPHeaderField:@"Content-Length"];
+    return request;
+}
+
 // Aborts in-flight requests and fails any later ones made through this manager
 - (void) cancelActiveRequests {
     @synchronized (self) {

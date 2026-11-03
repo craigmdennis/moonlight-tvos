@@ -79,7 +79,8 @@ final class HomeModel: NSObject, ObservableObject, DiscoveryCallback {
 
     struct Entry {
         var phase = Phase.idle
-        var networkTest: String?
+        /// A temporary line above the row: a network test result or a failed action.
+        var notice: String?
         var appNames: [String: String] = [:]
         var lastState: State = .unknown
         var lastFetch: Date?
@@ -261,7 +262,7 @@ final class HomeModel: NSObject, ObservableObject, DiscoveryCallback {
             let runningApp = appRunning(host) ? entry.appNames[host.currentGame ?? ""] ?? "Running App" : nil
             let snapshot = HostSnapshot(name: host.name, state: state, activity: entry.cache?.activity,
                                         activeClient: host.activeStreamClient, currentAppName: runningApp,
-                                        pinSecondsLeft: pairId == host.uuid ? pinLeft : nil, networkTest: entry.networkTest)
+                                        pinSecondsLeft: pairId == host.uuid ? pinLeft : nil, notice: entry.notice)
             let hash = host.uuid.unicodeScalars.reduce(0) { $0 + Int($1.value) }
             return HostTileModel(id: host.uuid, name: host.name, state: state,
                                  tintHex: Self.palette[hash % Self.palette.count],
@@ -424,6 +425,7 @@ final class HomeModel: NSObject, ObservableObject, DiscoveryCallback {
                 wake(id, desktop: desktop)
             }
         case .quit: quit(id)
+        case .sleep: sleep(id)
         case .testNetwork: testNetwork(id)
         case .removeComputer: removeHost = tiles.first { $0.id == id }
         }
@@ -464,7 +466,7 @@ final class HomeModel: NSObject, ObservableObject, DiscoveryCallback {
     private func connect(_ id: String, desktop: Bool, viewOnly: Bool) {
         guard let host = hosts[id], let discovery else { return }
         entries[id]?.phase = viewOnly ? .joining : .connecting
-        entries[id]?.networkTest = nil
+        entries[id]?.notice = nil
         rebuild()
 
         DispatchQueue.global().async {
@@ -585,6 +587,51 @@ final class HomeModel: NSObject, ObservableObject, DiscoveryCallback {
         }
     }
 
+    /// Sleeps the PC. A failure is a one-off line rather than the tile's error state: the host may
+    /// simply be busy, and pressing the tile should still start a stream.
+    private func sleep(_ id: String) {
+        guard let host = hosts[id], let discovery else { return }
+        DispatchQueue.global(qos: .userInitiated).async {
+            let manager = HttpManager(host: host)!
+            let response = HttpResponse()
+            discovery.pauseDiscovery(for: host)
+            manager.executeRequestSynchronously(HttpRequest(for: response, with: manager.newSleepRequest()))
+            discovery.resumeDiscovery(for: host)
+            let code = response.statusCode
+            let message = response.statusMessage ?? ""
+            DispatchQueue.main.async {
+                switch code {
+                case 200:
+                    // On its way down, so stop drawing the app it was running
+                    host.currentGame = "0"
+                    host.activeStreamClient = nil
+                    self.notice(id, "Putting \(host.name) to sleep…")
+                case 403 where message == "Permission denied":
+                    self.notice(id, "Apollo hasn’t allowed this Apple TV to start apps · Change it in Apollo on the PC")
+                case 409:
+                    self.notice(id, "\(host.name) is streaming to another device · Quit that stream first")
+                case 501:
+                    self.notice(id, "Apollo on this PC can’t put it to sleep")
+                default:
+                    self.notice(id, "Couldn’t put \(host.name) to sleep · Check that it’s online")
+                }
+            }
+        }
+    }
+
+    /// One line above the row for a few seconds. Only the newest message wins.
+    private func notice(_ id: String, _ text: String) {
+        entries[id]?.notice = text
+        rebuild()
+        Task {
+            try? await Task.sleep(for: .seconds(5))
+            if entries[id]?.notice == text {
+                entries[id]?.notice = nil
+                rebuild()
+            }
+        }
+    }
+
     /// Moonlight's port test against its own test servers; the result shows in the status line
     private func testNetwork(_ id: String) {
         DispatchQueue.global().async {
@@ -600,15 +647,7 @@ final class HomeModel: NSObject, ObservableObject, DiscoveryCallback {
                 text = "Network test: This network blocks \(String(cString: ports))"
             }
             DispatchQueue.main.async {
-                self.entries[id]?.networkTest = text
-                self.rebuild()
-                Task {
-                    try? await Task.sleep(for: .seconds(5))
-                    if self.entries[id]?.networkTest == text {
-                        self.entries[id]?.networkTest = nil
-                        self.rebuild()
-                    }
-                }
+                self.notice(id, text)
             }
         }
     }

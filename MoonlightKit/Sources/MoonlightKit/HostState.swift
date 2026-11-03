@@ -103,6 +103,8 @@ public extension HostCardState {
 public enum HoldMenuItem: Hashable, Sendable {
     case openBigPicture
     case openDesktop
+    /// Suspends the PC. Offered for a paired host, enabled only while it answers.
+    case sleep
     case quit(appName: String)
     case testNetwork
     case removeComputer
@@ -115,7 +117,18 @@ public func holdMenu(for state: HostCardState, runningAppName: String?) -> [Hold
     if let name = runningAppName, state == .online || state == .inUse {
         items.append(.quit(appName: name))
     }
-    return items + [.testNetwork, .removeComputer]
+    // Kept in the menu for every paired host so the order never changes under the remote,
+    // and disabled while the host cannot answer.
+    return items + [.sleep, .testNetwork, .removeComputer]
+}
+
+/// Whether a hold menu item can be chosen. A disabled item stays visible but is skipped
+/// when moving through the menu.
+public func isEnabled(_ item: HoldMenuItem, in state: HostCardState) -> Bool {
+    switch item {
+    case .sleep: state == .online
+    default: true
+    }
 }
 
 /// Maps a `launch` or `resume` failure to a row of the error table. 403 also means "Encryption is
