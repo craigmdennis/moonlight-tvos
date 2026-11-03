@@ -137,6 +137,7 @@ struct StreamSettingsPanel: View {
     @AppStorage("statsOverlay") private var stats = false
     @State private var choosing: Choice?
     @FocusState private var focus: String?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private func options(_ choice: Choice) -> [(Int, String)] {
         switch choice {
@@ -167,16 +168,20 @@ struct StreamSettingsPanel: View {
                 .padding(.bottom, 22)
 
             if let choosing {
-                ForEach(options(choosing), id: \.0) { value, label in
-                    Button {
-                        binding(choosing).wrappedValue = value
-                        showList(returningTo: choosing)
-                    } label: {
-                        PanelRow(title: label, trailingSymbol: binding(choosing).wrappedValue == value ? "checkmark" : nil)
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(options(choosing), id: \.0) { value, label in
+                        Button {
+                            binding(choosing).wrappedValue = value
+                            showList(returningTo: choosing)
+                        } label: {
+                            PanelRow(title: label, trailingSymbol: binding(choosing).wrappedValue == value ? "checkmark" : nil)
+                        }
+                        .buttonStyle(PanelRowStyle())
+                        .focused($focus, equals: label)
                     }
-                    .buttonStyle(PanelRowStyle())
-                    .focused($focus, equals: label)
                 }
+                // The brief's options menu scales in over 0.18 s
+                .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
             } else {
                 ForEach([Choice.resolution, .framerate, .bitrate], id: \.self) { choice in
                     Button { open(choice) } label: { PanelRow(title: choice.rawValue, value: valueText(choice)) }
@@ -224,6 +229,8 @@ struct StreamSettingsPanel: View {
                 .shadow(color: .black.opacity(isOpen ? 0.4 : 0), radius: 28, x: -18)
         }
         .focusSection()
+        // The brief's options menu scales in over 0.18 s; with Reduce Motion the rows just swap
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: choosing)
         // Flush with the screen edge; the column is 740 wide, so the slide moves it by its own
         // width rather than the screen's
         .ignoresSafeArea()
