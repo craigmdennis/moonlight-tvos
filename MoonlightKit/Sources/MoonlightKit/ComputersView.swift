@@ -282,11 +282,20 @@ public struct ComputersView: View {
                                 .buttonStyle(.card)
                                 .focused($focus, equals: host.id)
                                 .contextMenu {
-                                    ForEach(host.menu, id: \.self) { item in
-                                        Button(role: item == .removeComputer ? .destructive : nil) {
+                                    ForEach(host.menu.filter { $0 != .removeComputer }, id: \.self) { item in
+                                        Button {
                                             onMenu(host.id, item)
                                         } label: {
                                             Label(item.title, systemImage: item.symbol)
+                                        }
+                                    }
+                                    if host.menu.contains(.removeComputer) {
+                                        // A system menu divider keeps Remove apart from everything else
+                                        Divider()
+                                        Button(role: .destructive) {
+                                            onMenu(host.id, .removeComputer)
+                                        } label: {
+                                            Label(HoldMenuItem.removeComputer.title, systemImage: HoldMenuItem.removeComputer.symbol)
                                         }
                                     }
                                 }
