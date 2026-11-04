@@ -96,7 +96,7 @@
     _spinner = [[UIActivityIndicatorView alloc] init];
     [_spinner setUserInteractionEnabled:NO];
 #if TARGET_OS_TV
-    [_spinner setActivityIndicatorViewStyle:UIActivityIndicatorViewStyleWhiteLarge];
+    [_spinner setActivityIndicatorViewStyle:UIActivityIndicatorViewStyleLarge];
 #else
     [_spinner setActivityIndicatorViewStyle:UIActivityIndicatorViewStyleWhite];
 #endif
