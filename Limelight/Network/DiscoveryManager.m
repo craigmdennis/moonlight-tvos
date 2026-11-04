@@ -128,7 +128,7 @@
 
 - (void) discoverHost:(NSString *)hostAddress withCallback:(void (^)(TemporaryHost *, NSString*))callback {
     BOOL prohibitedAddress = [DiscoveryManager isProhibitedAddress:hostAddress];
-    NSString* prohibitedAddressMessage = [NSString stringWithFormat: @"Moonlight only supports adding PCs on your local network on %s.",
+    NSString* prohibitedAddressMessage = [NSString stringWithFormat: @"Selene only supports adding PCs on your local network on %s.",
     #if TARGET_OS_TV
                                    "tvOS"
     #else

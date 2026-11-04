@@ -643,7 +643,7 @@ final class HomeModel: NSObject, ObservableObject, DiscoveryCallback {
             let result = LiTestClientConnectivity("ios.conntest.moonlight-stream.org", 443, UInt32(ML_PORT_FLAG_ALL))
             var text: String
             if result == 0 {
-                text = "Network test: This network isn’t blocking Moonlight"
+                text = "Network test: This network isn’t blocking Selene"
             } else if result == ML_TEST_RESULT_INCONCLUSIVE {
                 text = "Network test: Couldn’t reach the test servers · Check your internet connection"
             } else {
