@@ -14,6 +14,11 @@ import UIKit
 import VideoToolbox
 import MoonlightKit
 
+// The Objective-C core is built for these hand-offs: closures pause and resume discovery or run
+// requests for a host on a background queue, and each object synchronises itself.
+extension TemporaryHost: @unchecked @retroactive Sendable {}
+extension DiscoveryManager: @unchecked @retroactive Sendable {}
+
 /// Reads the Apollo fork's endpoints through `HttpManager`, which holds the pairing certificates.
 struct HttpManagerHostAPI: HostAPI, @unchecked Sendable {
     let host: TemporaryHost
