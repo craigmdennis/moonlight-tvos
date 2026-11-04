@@ -436,7 +436,15 @@ static NSMutableSet* hostList;
 }
 
 - (UIViewController*) activeViewController {
-    UIViewController *topController = [UIApplication sharedApplication].keyWindow.rootViewController;
+    UIWindow *keyWindow = nil;
+    for (UIScene *scene in [UIApplication sharedApplication].connectedScenes) {
+        if (![scene isKindOfClass:[UIWindowScene class]] || scene.activationState != UISceneActivationStateForegroundActive) continue;
+        for (UIWindow *window in ((UIWindowScene *)scene).windows) {
+            if (window.isKeyWindow) { keyWindow = window; break; }
+        }
+        if (keyWindow) break;
+    }
+    UIViewController *topController = keyWindow.rootViewController;
 
     while (topController.presentedViewController) {
         topController = topController.presentedViewController;
