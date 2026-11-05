@@ -63,6 +63,7 @@ public func errorText(_ error: HostError) -> String {
 public func statusLine(for host: HostSnapshot, now: Date = Date(), locale: Locale = Locale(identifier: "en_US")) -> StatusLine {
     switch host.state {
     case .waking: return StatusLine(.spinner, "Waking \(host.name)…")
+    case .sleeping: return StatusLine(.spinner, "Sleeping…")
     case .connecting: return StatusLine(.spinner, "Starting Steam Big Picture…")
     case .joining: return StatusLine(.spinner, "Joining the stream…")
     case .pairing:

@@ -102,6 +102,7 @@ import Testing
         #expect(holdMenu(for: .offline, runningAppName: nil).contains(.sleep))
         #expect(!isEnabled(.sleep, in: .offline))
         #expect(!isEnabled(.sleep, in: .waking))
+        #expect(!isEnabled(.sleep, in: .sleeping))
         #expect(!isEnabled(.sleep, in: .inUse))
         #expect(!isEnabled(.sleep, in: .error(.other)))
         #expect(isEnabled(.sleep, in: .online))
@@ -153,6 +154,8 @@ import Testing
 
     @Test func describesProgressAndPairing() {
         #expect(statusLine(for: HostSnapshot(name: "Den", state: .waking)) == StatusLine(.spinner, "Waking Den…"))
+        #expect(statusLine(for: HostSnapshot(name: "Den", state: .sleeping)) == StatusLine(.spinner, "Sleeping…"))
+        #expect(HostCardState.sleeping.isBusy)
         #expect(statusLine(for: HostSnapshot(name: "Den", state: .connecting)) == StatusLine(.spinner, "Starting Steam Big Picture…"))
         #expect(statusLine(for: HostSnapshot(name: "Den", state: .joining)) == StatusLine(.spinner, "Joining the stream…"))
         #expect(statusLine(for: HostSnapshot(name: "Den", state: .pairing, pinSecondsLeft: 65)) == StatusLine(.spinner, "Enter the PIN in Apollo on the PC · New PIN in 1:05"))

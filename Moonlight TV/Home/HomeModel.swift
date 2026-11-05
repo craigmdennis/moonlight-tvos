@@ -77,7 +77,7 @@ final class PairForwarder: NSObject, PairCallback {
 @MainActor
 final class HomeModel: NSObject, ObservableObject, DiscoveryCallback {
     enum Phase: Equatable {
-        case idle, waking, connecting, joining, pairing
+        case idle, waking, sleeping, connecting, joining, pairing
         case pairFailed(PairFailure)
         case error(HostError)
     }
@@ -118,6 +118,7 @@ final class HomeModel: NSObject, ObservableObject, DiscoveryCallback {
     private var pinUntil = Date()
 
     private static let wakeTimeout: TimeInterval = 60
+    private static let sleepTimeout: TimeInterval = 30
     // The pair request's own timeout (EXTRA_LONG_TIMEOUT_SEC); the brief leaves the real lifetime open
     private static let pinLife: TimeInterval = 180
     private static let steamRefresh: TimeInterval = 60
@@ -220,6 +221,7 @@ final class HomeModel: NSObject, ObservableObject, DiscoveryCallback {
     private func cardState(_ host: TemporaryHost, _ entry: Entry) -> HostCardState {
         switch entry.phase {
         case .waking: return .waking
+        case .sleeping: return .sleeping
         case .connecting: return .connecting
         case .joining: return .joining
         case .pairing: return .pairing
@@ -592,10 +594,14 @@ final class HomeModel: NSObject, ObservableObject, DiscoveryCallback {
         }
     }
 
-    /// Sleeps the PC. A failure is a one-off line rather than the tile's error state: the host may
-    /// simply be busy, and pressing the tile should still start a stream.
+    /// Sleeps the PC. The tile shows a spinner until the host stops answering or the attempt fails.
+    /// A failure is a one-off line rather than the tile's error state: the host may simply be busy,
+    /// and pressing the tile should still start a stream.
     private func sleep(_ id: String) {
         guard let host = hosts[id], let discovery else { return }
+        entries[id]?.phase = .sleeping
+        entries[id]?.notice = nil
+        rebuild()
         DispatchQueue.global(qos: .userInitiated).async {
             let manager = HttpManager(host: host)!
             let response = HttpResponse()
@@ -605,21 +611,42 @@ final class HomeModel: NSObject, ObservableObject, DiscoveryCallback {
             let code = response.statusCode
             let message = response.statusMessage ?? ""
             DispatchQueue.main.async {
-                switch code {
-                case 200:
-                    // On its way down, so stop drawing the app it was running
-                    host.currentGame = "0"
-                    host.activeStreamClient = nil
-                    self.notice(id, "Putting \(host.name) to sleep…")
+                let failure: String? = switch code {
+                case 200: nil
                 case 403 where message == "Permission denied":
-                    self.notice(id, "Apollo hasn’t allowed this Apple TV to start apps · Change it in Apollo on the PC")
-                case 409:
-                    self.notice(id, "\(host.name) is streaming to another device · Quit that stream first")
-                case 501:
-                    self.notice(id, "Apollo on this PC can’t put it to sleep")
-                default:
-                    self.notice(id, "Couldn’t put \(host.name) to sleep · Check that it’s online")
+                    "Apollo hasn’t allowed this Apple TV to start apps · Change it in Apollo on the PC"
+                case 409: "\(host.name) is streaming to another device · Quit that stream first"
+                case 501: "Apollo on this PC can’t put it to sleep"
+                default: "Couldn’t put \(host.name) to sleep · Check that it’s online"
                 }
+                if let failure {
+                    self.entries[id]?.phase = .idle
+                    self.notice(id, failure)
+                    return
+                }
+                // On its way down, so stop drawing the app it was running
+                host.currentGame = "0"
+                host.activeStreamClient = nil
+                self.rebuild()
+                self.awaitOffline(id, host)
+            }
+        }
+    }
+
+    /// Discovery keeps polling the host, so this only watches its state.
+    private func awaitOffline(_ id: String, _ host: TemporaryHost) {
+        Task {
+            let deadline = Date().addingTimeInterval(Self.sleepTimeout)
+            while Date() < deadline, host.state == .online {
+                try? await Task.sleep(for: .seconds(1))
+                guard entries[id]?.phase == .sleeping else { return }
+            }
+            guard entries[id]?.phase == .sleeping else { return }
+            entries[id]?.phase = .idle
+            if host.state == .online {
+                notice(id, "Couldn’t put \(host.name) to sleep · Check that it’s online")
+            } else {
+                rebuild()
             }
         }
     }

@@ -21,6 +21,8 @@ public enum HostError: Equatable, Sendable {
 public enum HostCardState: Equatable, Sendable {
     case offline
     case waking
+    /// Asked to sleep; waiting to see whether the host goes offline.
+    case sleeping
     case online
     case connecting
     case inUse
@@ -67,7 +69,7 @@ public extension HostCardState {
     var badge: Badge {
         switch self {
         case .offline, .waking: .offline
-        case .online, .connecting: .online
+        case .online, .connecting, .sleeping: .online
         case .inUse, .joining: .inUse
         case .error: .error
         case .notPaired, .pairing, .pairingFailed: .notPaired
@@ -84,7 +86,7 @@ public extension HostCardState {
     /// True while a spinner replaces the badge.
     var isBusy: Bool {
         switch self {
-        case .waking, .connecting, .joining, .pairing: true
+        case .waking, .sleeping, .connecting, .joining, .pairing: true
         default: false
         }
     }
@@ -95,7 +97,7 @@ public extension HostCardState {
         case .online, .error: .start
         case .inUse: .askWatchOrCancel
         case .notPaired, .pairingFailed: .startPairing
-        case .waking, .connecting, .joining, .pairing: .none
+        case .waking, .sleeping, .connecting, .joining, .pairing: .none
         }
     }
 }
