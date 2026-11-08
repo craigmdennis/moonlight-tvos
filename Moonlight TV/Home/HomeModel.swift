@@ -88,6 +88,8 @@ final class HomeModel: NSObject, ObservableObject, DiscoveryCallback {
         var notice: String?
         var appNames: [String: String] = [:]
         var lastState: State = .unknown
+        /// Shown offline until then: the PC keeps answering discovery while it suspends.
+        var offlineUntil = Date.distantPast
         var lastFetch: Date?
         var cache: HostCacheSnapshot?
     }
@@ -118,7 +120,8 @@ final class HomeModel: NSObject, ObservableObject, DiscoveryCallback {
     private var pinUntil = Date()
 
     private static let wakeTimeout: TimeInterval = 60
-    private static let sleepTimeout: TimeInterval = 30
+    private static let sleepSpinner: TimeInterval = 4
+    private static let sleepGrace: TimeInterval = 20
     // The pair request's own timeout (EXTRA_LONG_TIMEOUT_SEC); the brief leaves the real lifetime open
     private static let pinLife: TimeInterval = 180
     private static let steamRefresh: TimeInterval = 60
@@ -229,7 +232,7 @@ final class HomeModel: NSObject, ObservableObject, DiscoveryCallback {
         case .error(let error): return .error(error)
         case .idle:
             if !isPaired(host) { return .notPaired }
-            guard host.state == .online else { return .offline }
+            guard host.state == .online, Date() >= entry.offlineUntil else { return .offline }
             return inUse(host) ? .inUse : .online
         }
     }
@@ -594,7 +597,7 @@ final class HomeModel: NSObject, ObservableObject, DiscoveryCallback {
         }
     }
 
-    /// Sleeps the PC. The tile shows a spinner until the host stops answering or the attempt fails.
+    /// Sleeps the PC. The tile shows a spinner until the host answers; on success it keeps spinning for a few seconds, then shows offline.
     /// A failure is a one-off line rather than the tile's error state: the host may simply be busy,
     /// and pressing the tile should still start a stream.
     private func sleep(_ id: String) {
@@ -607,8 +610,16 @@ final class HomeModel: NSObject, ObservableObject, DiscoveryCallback {
             let response = HttpResponse()
             discovery.pauseDiscovery(for: host)
             manager.executeRequestSynchronously(HttpRequest(for: response, with: manager.newSleepRequest()))
-            discovery.resumeDiscovery(for: host)
             let code = response.statusCode
+            // The PC keeps answering for a few seconds while it suspends, so a 200 keeps discovery
+            // paused for a grace period and the host is shown offline straight away.
+            if code == 200 {
+                DispatchQueue.global().asyncAfter(deadline: .now() + Self.sleepGrace) {
+                    discovery.resumeDiscovery(for: host)
+                }
+            } else {
+                discovery.resumeDiscovery(for: host)
+            }
             let message = response.statusMessage ?? ""
             DispatchQueue.main.async {
                 let failure: String? = switch code {
@@ -627,26 +638,15 @@ final class HomeModel: NSObject, ObservableObject, DiscoveryCallback {
                 // On its way down, so stop drawing the app it was running
                 host.currentGame = "0"
                 host.activeStreamClient = nil
+                self.entries[id]?.offlineUntil = Date().addingTimeInterval(Self.sleepGrace)
                 self.rebuild()
-                self.awaitOffline(id, host)
-            }
-        }
-    }
-
-    /// Discovery keeps polling the host, so this only watches its state.
-    private func awaitOffline(_ id: String, _ host: TemporaryHost) {
-        Task {
-            let deadline = Date().addingTimeInterval(Self.sleepTimeout)
-            while Date() < deadline, host.state == .online {
-                try? await Task.sleep(for: .seconds(1))
-                guard entries[id]?.phase == .sleeping else { return }
-            }
-            guard entries[id]?.phase == .sleeping else { return }
-            entries[id]?.phase = .idle
-            if host.state == .online {
-                notice(id, "Couldn’t put \(host.name) to sleep · Check that it’s online")
-            } else {
-                rebuild()
+                // Keep the spinner up briefly so the action reads as happening
+                Task {
+                    try? await Task.sleep(for: .seconds(Self.sleepSpinner))
+                    guard self.entries[id]?.phase == .sleeping else { return }
+                    self.entries[id]?.phase = .idle
+                    self.rebuild()
+                }
             }
         }
     }
