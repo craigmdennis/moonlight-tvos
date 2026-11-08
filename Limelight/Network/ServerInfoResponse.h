@@ -22,6 +22,11 @@
 // Sunshine extension
 #define TAG_EXTERNAL_PORT @"ExternalPort"
 
+// Vibepollo power actions, sent only to paired HTTPS clients
+#define TAG_POWER_ACTION_VERSION @"PowerActionVersion"
+#define TAG_SLEEP_SUPPORTED @"SleepSupported"
+#define TAG_SLEEP_ALLOWED @"SleepAllowed"
+
 @interface ServerInfoResponse : HttpResponse <Response>
 
 - (void) populateWithData:(NSData *)data;

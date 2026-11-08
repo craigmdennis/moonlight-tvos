@@ -398,7 +398,10 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
     button.imageView.contentMode = UIViewContentModeScaleAspectFit;
     button.imageView.backgroundColor = backgroundColor;
     button.imageView.layer.cornerRadius = 10.0;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     button.imageEdgeInsets = UIEdgeInsetsMake(6, 6, 6, 6);
+#pragma clang diagnostic pop
     [button addTarget:target action:action forControlEvents:UIControlEventTouchUpInside];
     objc_setAssociatedObject(button, "keyCode", @(keyCode), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     objc_setAssociatedObject(button, "isToggleable", @(isToggleable), OBJC_ASSOCIATION_RETAIN_NONATOMIC);

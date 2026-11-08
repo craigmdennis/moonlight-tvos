@@ -122,7 +122,8 @@
     __block NSData* requestResp = nil;
     __block NSError* respError = nil;
     __block dispatch_semaphore_t requestLock = dispatch_semaphore_create(0);
-    
+
+    const BOOL powerAction = [self isPowerActionRequest:request.request];
     Log(LOG_D, @"Making Request: %@", request);
     NSURLSession* urlSession = [NSURLSession sessionWithConfiguration:[NSURLSessionConfiguration ephemeralSessionConfiguration] delegate:self delegateQueue:nil];
     @synchronized (self) {
@@ -146,10 +147,15 @@
             respError = error;
         }
         else {
-            Log(LOG_D, @"Received response: %@", response);
+            Log(LOG_D, @"Received response: %@", powerAction ? [self describeResponseWithoutQuery:response] : response);
 
             if (data != NULL) {
-                Log(LOG_D, @"\n\nReceived data: %@\n\n", [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding]);
+                if (powerAction) {
+                    Log(LOG_D, @"Received %lu bytes of power action response", (unsigned long)data.length);
+                }
+                else {
+                    Log(LOG_D, @"\n\nReceived data: %@\n\n", [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding]);
+                }
                 if ([[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding] != nil) {
                     requestResp = [HttpManager fixXmlVersion:data];
                 } else {
@@ -205,6 +211,20 @@
     NSMutableURLRequest* request = [NSMutableURLRequest requestWithURL:url];
     [request setTimeoutInterval:timeout];
     return request;
+}
+
+// The sleep token is a one-use credential carried in the query and echoed in the XML.
+// The debug log prints both verbatim, so power action requests are logged without them.
+- (BOOL) isPowerActionRequest:(NSURLRequest*)request {
+    return [request.URL.path hasPrefix:@"/power-actions/v1"];
+}
+
+- (NSString*) describeResponseWithoutQuery:(NSURLResponse*)response {
+    if ([response isKindOfClass:[NSHTTPURLResponse class]]) {
+        NSHTTPURLResponse* httpResponse = (NSHTTPURLResponse*)response;
+        return [NSString stringWithFormat:@"%@ %ld", httpResponse.URL.path, (long)httpResponse.statusCode];
+    }
+    return response.description;
 }
 
 - (NSURLRequest*) newPairRequest:(NSData*)salt clientCert:(NSData*)clientCert {
@@ -351,6 +371,33 @@
     return [self createRequestFromString:urlString timeout:LONG_TIMEOUT_SEC];
 }
 
+// Vibepollo power actions. Both go over the paired HTTPS channel, where the client
+// certificate is the identity, so neither sends uniqueid.
+- (NSURLRequest*) newPowerActionCapabilitiesRequest {
+    if (![self ensureHttpsUrlPopulated:NO]) {
+        return nil;
+    }
+    
+    NSString* urlString = [NSString stringWithFormat:@"%@/power-actions/v1", _baseHTTPSURL];
+    return [self createRequestFromString:urlString timeout:NORMAL_TIMEOUT_SEC];
+}
+
+// The token is single use and expires in 30 seconds, so it is minted by the capabilities
+// request and spent here in the same user action. It must be the only query argument, the
+// body must be empty, and a browser Origin header must not be sent.
+- (NSURLRequest*) newPowerActionSleepRequest:(NSString*)token {
+    if (![self ensureHttpsUrlPopulated:NO] || token.length == 0) {
+        return nil;
+    }
+    
+    // The token is 64 lowercase hex characters, so it needs no escaping.
+    NSString* urlString = [NSString stringWithFormat:@"%@/power-actions/v1/sleep?token=%@", _baseHTTPSURL, token];
+    NSMutableURLRequest* request = [[self createRequestFromString:urlString timeout:NORMAL_TIMEOUT_SEC] mutableCopy];
+    request.HTTPMethod = @"POST";
+    [request setValue:@"0" forHTTPHeaderField:@"Content-Length"];
+    return request;
+}
+
 // Aborts in-flight requests and fails any later ones made through this manager
 - (void) cancelActiveRequests {
     @synchronized (self) {
@@ -416,14 +463,17 @@
             return;
         }
         
-        SecCertificateRef actualCert = SecTrustGetCertificateAtIndex(challenge.protectionSpace.serverTrust, 0);
+        CFArrayRef certChain = SecTrustCopyCertificateChain(challenge.protectionSpace.serverTrust);
+        SecCertificateRef actualCert = certChain ? (SecCertificateRef)CFArrayGetValueAtIndex(certChain, 0) : nil;
         if (actualCert == nil) {
+            if (certChain) CFRelease(certChain);
             Log(LOG_E, @"Server certificate parsing error");
             completionHandler(NSURLSessionAuthChallengePerformDefaultHandling, NULL);
             return;
         }
         
         CFDataRef actualCertData = SecCertificateCopyData(actualCert);
+        CFRelease(certChain);
         if (actualCertData == nil) {
             Log(LOG_E, @"Server certificate data parsing error");
             completionHandler(NSURLSessionAuthChallengePerformDefaultHandling, NULL);

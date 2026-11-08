@@ -15,8 +15,7 @@
 #include <openssl/evp.h>
 
 @implementation CryptoManager
-static const int SHA1_HASH_LENGTH = 20;
-static const int SHA256_HASH_LENGTH = 32;
+enum { SHA1_HASH_LENGTH = 20, SHA256_HASH_LENGTH = 32 };
 static NSData* key = nil;
 static NSData* cert = nil;
 static NSData* p12 = nil;

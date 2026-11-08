@@ -14,6 +14,11 @@ import UIKit
 import VideoToolbox
 import MoonlightKit
 
+// The Objective-C core is built for these hand-offs: closures pause and resume discovery or run
+// requests for a host on a background queue, and each object synchronises itself.
+extension TemporaryHost: @unchecked @retroactive Sendable {}
+extension DiscoveryManager: @unchecked @retroactive Sendable {}
+
 /// Reads the Apollo fork's endpoints through `HttpManager`, which holds the pairing certificates.
 struct HttpManagerHostAPI: HostAPI, @unchecked Sendable {
     let host: TemporaryHost
@@ -72,16 +77,19 @@ final class PairForwarder: NSObject, PairCallback {
 @MainActor
 final class HomeModel: NSObject, ObservableObject, DiscoveryCallback {
     enum Phase: Equatable {
-        case idle, waking, connecting, joining, pairing
+        case idle, waking, sleeping, connecting, joining, pairing
         case pairFailed(PairFailure)
         case error(HostError)
     }
 
     struct Entry {
         var phase = Phase.idle
-        var networkTest: String?
+        /// A temporary line above the row: a network test result or a failed action.
+        var notice: String?
         var appNames: [String: String] = [:]
         var lastState: State = .unknown
+        /// Shown offline until then: the PC keeps answering discovery while it suspends.
+        var offlineUntil = Date.distantPast
         var lastFetch: Date?
         var cache: HostCacheSnapshot?
     }
@@ -112,6 +120,8 @@ final class HomeModel: NSObject, ObservableObject, DiscoveryCallback {
     private var pinUntil = Date()
 
     private static let wakeTimeout: TimeInterval = 60
+    private static let sleepSpinner: TimeInterval = 4
+    private static let sleepGrace: TimeInterval = 20
     // The pair request's own timeout (EXTRA_LONG_TIMEOUT_SEC); the brief leaves the real lifetime open
     private static let pinLife: TimeInterval = 180
     private static let steamRefresh: TimeInterval = 60
@@ -214,6 +224,7 @@ final class HomeModel: NSObject, ObservableObject, DiscoveryCallback {
     private func cardState(_ host: TemporaryHost, _ entry: Entry) -> HostCardState {
         switch entry.phase {
         case .waking: return .waking
+        case .sleeping: return .sleeping
         case .connecting: return .connecting
         case .joining: return .joining
         case .pairing: return .pairing
@@ -221,7 +232,7 @@ final class HomeModel: NSObject, ObservableObject, DiscoveryCallback {
         case .error(let error): return .error(error)
         case .idle:
             if !isPaired(host) { return .notPaired }
-            guard host.state == .online else { return .offline }
+            guard host.state == .online, Date() >= entry.offlineUntil else { return .offline }
             return inUse(host) ? .inUse : .online
         }
     }
@@ -237,6 +248,15 @@ final class HomeModel: NSObject, ObservableObject, DiscoveryCallback {
     }
 
     private static let palette: [UInt32] = [0x3A5BA0, 0x2E7A68, 0x4A4A52, 0x2E3440, 0x3A3A44]
+
+    /// Whether the host advertises native sleep to this paired client.
+    private func sleepCapability(_ host: TemporaryHost) -> SleepCapability {
+        switch host.powerActionVersion {
+        case -1: .unknown
+        case 1: host.sleepSupported ? (host.sleepAllowed ? .available : .notAllowed) : .unsupported
+        default: .unsupported
+        }
+    }
 
     private func rebuild() {
         for id in hosts.keys where entries[id] == nil {
@@ -261,9 +281,10 @@ final class HomeModel: NSObject, ObservableObject, DiscoveryCallback {
             let runningApp = appRunning(host) ? entry.appNames[host.currentGame ?? ""] ?? "Running App" : nil
             let snapshot = HostSnapshot(name: host.name, state: state, activity: entry.cache?.activity,
                                         activeClient: host.activeStreamClient, currentAppName: runningApp,
-                                        pinSecondsLeft: pairId == host.uuid ? pinLeft : nil, networkTest: entry.networkTest)
+                                        pinSecondsLeft: pairId == host.uuid ? pinLeft : nil, notice: entry.notice)
             let hash = host.uuid.unicodeScalars.reduce(0) { $0 + Int($1.value) }
             return HostTileModel(id: host.uuid, name: host.name, state: state,
+                                 sleepCapability: sleepCapability(host),
                                  tintHex: Self.palette[hash % Self.palette.count],
                                  backdrop: paired ? entry.cache?.hero ?? entry.cache?.wallpaper : nil,
                                  tileArt: paired ? entry.cache?.hero : nil,
@@ -424,6 +445,7 @@ final class HomeModel: NSObject, ObservableObject, DiscoveryCallback {
                 wake(id, desktop: desktop)
             }
         case .quit: quit(id)
+        case .sleep: sleep(id)
         case .testNetwork: testNetwork(id)
         case .removeComputer: removeHost = tiles.first { $0.id == id }
         }
@@ -464,7 +486,7 @@ final class HomeModel: NSObject, ObservableObject, DiscoveryCallback {
     private func connect(_ id: String, desktop: Bool, viewOnly: Bool) {
         guard let host = hosts[id], let discovery else { return }
         entries[id]?.phase = viewOnly ? .joining : .connecting
-        entries[id]?.networkTest = nil
+        entries[id]?.notice = nil
         rebuild()
 
         DispatchQueue.global().async {
@@ -585,13 +607,144 @@ final class HomeModel: NSObject, ObservableObject, DiscoveryCallback {
         }
     }
 
+    /// Quits whatever the PC retained for Resume, then asks Vibepollo to sleep. The host mints a
+    /// single-use token only while it is idle, so discovery pauses, the token is spent once, and
+    /// no failure is retried. The tile shows a spinner until the host answers; on success it keeps
+    /// spinning for a few seconds, then shows offline.
+    /// A failure is a one-off line rather than the tile's error state: the host may simply be
+    /// busy, and pressing the tile should still start a stream.
+    private func sleep(_ id: String) {
+        guard let host = hosts[id], let discovery else { return }
+        let runningApp = appRunning(host) ? entries[id]?.appNames[host.currentGame ?? ""] ?? "the running app" : nil
+        entries[id]?.phase = .sleeping
+        entries[id]?.notice = nil
+        rebuild()
+        DispatchQueue.global(qos: .userInitiated).async {
+            let manager = HttpManager(host: host)!
+            discovery.pauseDiscovery(for: host)
+
+            // A retained app, which is what leaving a stream leaves behind, makes the host refuse
+            // to sleep. Quit it first, and stop if that fails rather than sleep with it running.
+            if let runningApp {
+                let quit = HttpResponse()
+                manager.executeRequestSynchronously(HttpRequest(for: quit, with: manager.newQuitAppRequest()))
+                guard quit.isStatusOk() else {
+                    discovery.resumeDiscovery(for: host)
+                    DispatchQueue.main.async {
+                        self.entries[id]?.phase = .idle
+                        self.notice(id, "Couldn’t quit \(runningApp) on \(host.name) · Try again")
+                    }
+                    return
+                }
+                DispatchQueue.main.async {
+                    host.currentGame = "0"
+                    host.activeStreamClient = nil
+                    self.rebuild()
+                }
+            }
+
+            // Step 1: the flags and a fresh token. This replaces any earlier token, so minting and
+            // spending happen inside this one action. The HTTP status is normally 200 even when
+            // sleep is unsupported, not allowed or busy, so the flags decide.
+            let capabilitiesResponse = HttpResponse()
+            manager.executeRequestSynchronously(HttpRequest(for: capabilitiesResponse, with: manager.newPowerActionCapabilitiesRequest()))
+            let capabilities = capabilitiesResponse.data.flatMap { PowerActionCapabilities(xml: $0) }
+
+            let refusal: SleepRefusal?
+            if capabilitiesResponse.statusCode == 401 || capabilitiesResponse.statusCode == 503 {
+                refusal = classifySleepRefusal(statusCode: capabilitiesResponse.statusCode)
+            } else if let capabilities, capabilities.version == 1 {
+                if !capabilities.supported { refusal = .unsupported }
+                else if !capabilities.allowed { refusal = .notAllowed }
+                else if !capabilities.canSleepNow { refusal = .busy }
+                else { refusal = nil }
+            } else {
+                // No PowerActionVersion: the host has no native sleep.
+                refusal = .unsupported
+            }
+
+            guard refusal == nil, let token = capabilities?.token else {
+                discovery.resumeDiscovery(for: host)
+                DispatchQueue.main.async {
+                    self.entries[id]?.phase = .idle
+                    self.notice(id, Self.sleepRefusalText(refusal ?? .other, host: host.name))
+                }
+                return
+            }
+
+            // Step 2: spend the token exactly once. Success is 202 with SleepAccepted; a 200 is not
+            // success for this request, and 202 means accepted, not that the PC has suspended.
+            let sleepResponse = HttpResponse()
+            manager.executeRequestSynchronously(HttpRequest(for: sleepResponse, with: manager.newPowerActionSleepRequest(token)))
+            let accepted = sleepResponse.statusCode == 202
+                && (sleepResponse.data.flatMap { PowerActionCapabilities(xml: $0) }?.accepted ?? false)
+            let refusalAfterPost = accepted ? nil : classifySleepRefusal(statusCode: sleepResponse.statusCode)
+
+            // The PC keeps answering discovery for a few seconds while it suspends, so a success
+            // keeps discovery paused for a grace period and the host is shown offline straight away.
+            if accepted {
+                DispatchQueue.global().asyncAfter(deadline: .now() + Self.sleepGrace) {
+                    discovery.resumeDiscovery(for: host)
+                }
+            } else {
+                discovery.resumeDiscovery(for: host)
+            }
+
+            DispatchQueue.main.async {
+                if let refusalAfterPost {
+                    self.entries[id]?.phase = .idle
+                    self.notice(id, Self.sleepRefusalText(refusalAfterPost, host: host.name))
+                    return
+                }
+                // On its way down, so stop drawing the app it was running
+                host.currentGame = "0"
+                host.activeStreamClient = nil
+                self.entries[id]?.offlineUntil = Date().addingTimeInterval(Self.sleepGrace)
+                self.rebuild()
+                // Keep the spinner up briefly so the action reads as happening
+                Task {
+                    try? await Task.sleep(for: .seconds(Self.sleepSpinner))
+                    guard self.entries[id]?.phase == .sleeping else { return }
+                    self.entries[id]?.phase = .idle
+                    self.rebuild()
+                }
+            }
+        }
+    }
+
+    /// One line for a refused or unanswered sleep request, chosen by status code. The host's own
+    /// message is empty on the flag-only answers, so it cannot be matched on.
+    private static func sleepRefusalText(_ refusal: SleepRefusal, host: String) -> String {
+        switch refusal {
+        case .identityLost: "\(host) no longer recognises this Apple TV · Pair again"
+        case .notAllowed: "Apollo hasn’t allowed this Apple TV to sleep · Change it in Apollo on the PC"
+        case .busy: "\(host) is busy · Close any app or stream on it, then try again"
+        case .unsupported: "Apollo on this PC can’t put it to sleep"
+        case .hostBusy: "\(host) is busy · Try again in a moment"
+        case .other: "Couldn’t put \(host) to sleep · Check that it’s online"
+        }
+    }
+
+    /// One line above the row for a few seconds. Only the newest message wins.
+    private func notice(_ id: String, _ text: String) {
+        entries[id]?.notice = text
+        rebuild()
+        Task {
+            try? await Task.sleep(for: .seconds(5))
+            if entries[id]?.notice == text {
+                entries[id]?.notice = nil
+                rebuild()
+            }
+        }
+    }
+
     /// Moonlight's port test against its own test servers; the result shows in the status line
     private func testNetwork(_ id: String) {
         DispatchQueue.global().async {
             let result = LiTestClientConnectivity("ios.conntest.moonlight-stream.org", 443, UInt32(ML_PORT_FLAG_ALL))
             var text: String
             if result == 0 {
-                text = "Network test: This network isn’t blocking Moonlight"
+                text = "Network test: This network isn’t blocking Selene"
             } else if result == ML_TEST_RESULT_INCONCLUSIVE {
                 text = "Network test: Couldn’t reach the test servers · Check your internet connection"
             } else {
@@ -600,15 +753,7 @@ final class HomeModel: NSObject, ObservableObject, DiscoveryCallback {
                 text = "Network test: This network blocks \(String(cString: ports))"
             }
             DispatchQueue.main.async {
-                self.entries[id]?.networkTest = text
-                self.rebuild()
-                Task {
-                    try? await Task.sleep(for: .seconds(5))
-                    if self.entries[id]?.networkTest == text {
-                        self.entries[id]?.networkTest = nil
-                        self.rebuild()
-                    }
-                }
+                self.notice(id, text)
             }
         }
     }

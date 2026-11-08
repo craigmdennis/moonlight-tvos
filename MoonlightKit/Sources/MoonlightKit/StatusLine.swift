@@ -32,12 +32,12 @@ public struct HostSnapshot: Equatable, Sendable {
     /// Name of the Apollo app that runs, used when Steam reports no running game.
     public var currentAppName: String?
     public var pinSecondsLeft: Int?
-    /// Result of the last Test Network, shown until it expires.
-    public var networkTest: String?
+    /// Result of the last Test Network or a failed one-off action, shown until it expires.
+    public var notice: String?
 
     public init(
         name: String, state: HostCardState, activity: ActivityResponse? = nil, activeClient: String? = nil,
-        currentAppName: String? = nil, pinSecondsLeft: Int? = nil, networkTest: String? = nil
+        currentAppName: String? = nil, pinSecondsLeft: Int? = nil, notice: String? = nil
     ) {
         self.name = name
         self.state = state
@@ -45,7 +45,7 @@ public struct HostSnapshot: Equatable, Sendable {
         self.activeClient = activeClient
         self.currentAppName = currentAppName
         self.pinSecondsLeft = pinSecondsLeft
-        self.networkTest = networkTest
+        self.notice = notice
     }
 }
 
@@ -63,6 +63,7 @@ public func errorText(_ error: HostError) -> String {
 public func statusLine(for host: HostSnapshot, now: Date = Date(), locale: Locale = Locale(identifier: "en_US")) -> StatusLine {
     switch host.state {
     case .waking: return StatusLine(.spinner, "Waking \(host.name)…")
+    case .sleeping: return StatusLine(.spinner, "Sleeping…")
     case .connecting: return StatusLine(.spinner, "Starting Steam Big Picture…")
     case .joining: return StatusLine(.spinner, "Joining the stream…")
     case .pairing:
@@ -77,7 +78,7 @@ public func statusLine(for host: HostSnapshot, now: Date = Date(), locale: Local
     case .notPaired: return StatusLine(.lock, "Found on your network · Not paired with this Apple TV yet")
     case .error(let e): return StatusLine(.warning, errorText(e))
     case .offline, .online, .inUse:
-        if let test = host.networkTest { return StatusLine(.none, test) }
+        if let notice = host.notice { return StatusLine(.none, notice) }
         if host.state == .inUse { return inUseLine(host) }
         return activityLine(host.activity, now: now, locale: locale)
     }

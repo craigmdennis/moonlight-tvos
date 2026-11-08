@@ -50,6 +50,7 @@
 		F74BEF9C2C1A705600224667 /* OpenSSL in Frameworks */ = {isa = PBXBuildFile; productRef = F74BEF9B2C1A705600224667 /* OpenSSL */; };
 		F74BEFA42C1A80E400224667 /* OpenSSL in Frameworks */ = {isa = PBXBuildFile; productRef = F74BEFA32C1A80E400224667 /* OpenSSL */; };
 		FB1A674D2131E65900507771 /* KeyboardSupport.m in Sources */ = {isa = PBXBuildFile; fileRef = FB1A674C2131E65900507771 /* KeyboardSupport.m */; };
+		AAC0DE0000000000000000A3 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AAC0DE0000000000000000A1 /* LaunchScreen.storyboard */; };
 		FB1A67602132419700507771 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = FB1A675E2132419700507771 /* Main.storyboard */; };
 		FB1A67622132419A00507771 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = FB1A67612132419A00507771 /* Assets.xcassets */; };
 		FB1A67A12132458C00507771 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = FB1A67642132419A00507771 /* main.m */; };
@@ -227,7 +228,8 @@
 		DC1F5A06206436B20037755F /* ConnectionHelper.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = ConnectionHelper.m; sourceTree = "<group>"; };
 		FB1A674B2131E65900507771 /* KeyboardSupport.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = KeyboardSupport.h; sourceTree = "<group>"; };
 		FB1A674C2131E65900507771 /* KeyboardSupport.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = KeyboardSupport.m; sourceTree = "<group>"; };
-		FB1A67532132419700507771 /* Moonlight TV.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Moonlight TV.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		FB1A67532132419700507771 /* Selene.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Selene.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		AAC0DE0000000000000000A2 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		FB1A675F2132419700507771 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		FB1A67612132419A00507771 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		FB1A67632132419A00507771 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -409,6 +411,7 @@
 			children = (
 				FBB3A11ACA2CF4520567DD1F /* Home */,
 				FB1A675E2132419700507771 /* Main.storyboard */,
+				AAC0DE0000000000000000A1 /* LaunchScreen.storyboard */,
 				FB1A67612132419A00507771 /* Assets.xcassets */,
 				FB1A67632132419A00507771 /* Info.plist */,
 				FB1A67642132419A00507771 /* main.m */,
@@ -433,7 +436,7 @@
 			isa = PBXGroup;
 			children = (
 				FB290CEE19B2C406004C83CF /* Moonlight.app */,
-				FB1A67532132419700507771 /* Moonlight TV.app */,
+				FB1A67532132419700507771 /* Selene.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -731,7 +734,7 @@
 				F74BEFA32C1A80E400224667 /* OpenSSL */,
 			);
 			productName = "Moonlight TV";
-			productReference = FB1A67532132419700507771 /* Moonlight TV.app */;
+			productReference = FB1A67532132419700507771 /* Selene.app */;
 			productType = "com.apple.product-type.application";
 		};
 		FB290CED19B2C406004C83CF /* Moonlight */ = {
@@ -836,6 +839,7 @@
 				FB1A681E21328A1B00507771 /* Images.xcassets in Resources */,
 				FB1A67622132419A00507771 /* Assets.xcassets in Resources */,
 				FB1A67602132419700507771 /* Main.storyboard in Resources */,
+				AAC0DE0000000000000000A3 /* LaunchScreen.storyboard in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -983,6 +987,14 @@
 /* End PBXTargetDependency section */
 
 /* Begin PBXVariantGroup section */
+		AAC0DE0000000000000000A1 /* LaunchScreen.storyboard */ = {
+			isa = PBXVariantGroup;
+			children = (
+				AAC0DE0000000000000000A2 /* Base */,
+			);
+			name = LaunchScreen.storyboard;
+			sourceTree = "<group>";
+		};
 		FB1A675E2132419700507771 /* Main.storyboard */ = {
 			isa = PBXVariantGroup;
 			children = (
@@ -1006,7 +1018,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = "App Icon & Top Shelf Image";
-				ASSETCATALOG_COMPILER_LAUNCHIMAGE_NAME = "Launch Image";
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
@@ -1046,8 +1057,8 @@
 				);
 				MARKETING_VERSION = 9.0.2;
 				MTL_ENABLE_DEBUG_INFO = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.tungstendesign.moonlight-tv";
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.tungstendesign.selene";
+				PRODUCT_NAME = Selene;
 				SDKROOT = appletvos;
 				SWIFT_OBJC_BRIDGING_HEADER = "Limelight/Input/Moonlight-Bridging-Header.h";
 				SWIFT_OBJC_INTERFACE_HEADER_NAME = "Moonlight-Swift.h";
@@ -1062,7 +1073,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = "App Icon & Top Shelf Image";
-				ASSETCATALOG_COMPILER_LAUNCHIMAGE_NAME = "Launch Image";
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
@@ -1103,8 +1113,8 @@
 				);
 				MARKETING_VERSION = 9.0.2;
 				MTL_ENABLE_DEBUG_INFO = NO;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.tungstendesign.moonlight-tv";
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.tungstendesign.selene";
+				PRODUCT_NAME = Selene;
 				SDKROOT = appletvos;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OBJC_BRIDGING_HEADER = "Limelight/Input/Moonlight-Bridging-Header.h";
