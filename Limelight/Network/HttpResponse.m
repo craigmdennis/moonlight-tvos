@@ -95,7 +95,13 @@
     
     xmlFreeDoc(docPtr);
     
-    Log(LOG_D, @"Parsed XML data: %@", _elements);
+    // The power action token is a one-use credential and is echoed in this body.
+    if ([_elements objectForKey:@"SleepToken"] != nil) {
+        Log(LOG_D, @"Parsed XML data: power action response (sleep token redacted)");
+    }
+    else {
+        Log(LOG_D, @"Parsed XML data: %@", _elements);
+    }
 }
 
 @end

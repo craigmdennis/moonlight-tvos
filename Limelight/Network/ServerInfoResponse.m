@@ -102,6 +102,19 @@
     host.reportsActiveClient = activeClientTag != nil;
     NSString *activeClient = [activeClientTag trim];
     host.activeStreamClient = activeClient.length > 0 ? activeClient : nil;
+
+    // Vibepollo power actions, sent only to paired HTTPS clients. A host without the version
+    // element has no native sleep, so the tile's action is reported as unsupported.
+    NSInteger powerActionVersion;
+    if ([self getIntTag:TAG_POWER_ACTION_VERSION value:&powerActionVersion]) {
+        NSInteger sleepSupported, sleepAllowed;
+        host.powerActionVersion = (int)powerActionVersion;
+        host.sleepSupported = [self getIntTag:TAG_SLEEP_SUPPORTED value:&sleepSupported] && sleepSupported != 0;
+        host.sleepAllowed = [self getIntTag:TAG_SLEEP_ALLOWED value:&sleepAllowed] && sleepAllowed != 0;
+    }
+    else {
+        host.powerActionVersion = 0;
+    }
     
     NSString *serverCodecModeString = [self getStringTag:@"ServerCodecModeSupport"];
     if (serverCodecModeString != nil) {

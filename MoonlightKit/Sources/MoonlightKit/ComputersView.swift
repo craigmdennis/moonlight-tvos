@@ -7,6 +7,8 @@ public struct HostTileModel: Identifiable, Equatable, Sendable {
     public let id: String
     public var name: String
     public var state: HostCardState
+    /// What the host advertises about native sleep; gates the hold menu item.
+    public var sleepCapability: SleepCapability
     public var tintHex: UInt32
     /// Hero from the cache, else the wallpaper. Already chosen by `backdropSources`.
     public var backdrop: Data?
@@ -15,9 +17,11 @@ public struct HostTileModel: Identifiable, Equatable, Sendable {
     public var line: StatusLine
     public var menu: [HoldMenuItem]
 
-    public init(id: String, name: String, state: HostCardState, tintHex: UInt32, backdrop: Data? = nil,
+    public init(id: String, name: String, state: HostCardState, sleepCapability: SleepCapability = .unknown,
+                tintHex: UInt32, backdrop: Data? = nil,
                 tileArt: Data? = nil, line: StatusLine, menu: [HoldMenuItem]) {
-        self.id = id; self.name = name; self.state = state; self.tintHex = tintHex
+        self.id = id; self.name = name; self.state = state; self.sleepCapability = sleepCapability
+        self.tintHex = tintHex
         self.backdrop = backdrop; self.tileArt = tileArt; self.line = line; self.menu = menu
     }
 }
@@ -48,29 +52,6 @@ extension StatusIcon {
     }
 }
 
-extension HoldMenuItem {
-    var title: String {
-        switch self {
-        case .openBigPicture: "Open Steam Big Picture"
-        case .openDesktop: "Open Desktop"
-        case .sleep: "Sleep"
-        case .quit(let app): "Quit \(app)"
-        case .testNetwork: "Test Network"
-        case .removeComputer: "Remove Computer"
-        }
-    }
-
-    var symbol: String {
-        switch self {
-        case .openBigPicture: "gamecontroller"
-        case .openDesktop: "display"
-        case .sleep: "moon.zzz.fill"
-        case .quit: "xmark.circle"
-        case .testNetwork: "wifi"
-        case .removeComputer: "trash"
-        }
-    }
-}
 
 /// Liquid Glass on tvOS 26, a blurred material before it.
 struct GlassCapsule: ViewModifier {
@@ -292,7 +273,7 @@ public struct ComputersView: View {
                                         }
                                         // Visible but dimmed, and skipped by the remote,
                                         // while the host cannot take the command
-                                        .disabled(!isEnabled(item, in: host.state))
+                                        .disabled(!isEnabled(item, in: host.state, sleep: host.sleepCapability))
                                     }
                                     if host.menu.contains(.removeComputer) {
                                         // A system menu divider keeps Remove apart from everything else

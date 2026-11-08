@@ -114,12 +114,106 @@ import Testing
         }
     }
 
+    @Test func sleepIsDisabledWhenTheHostCannotOrMayNotSleep() {
+        // The item keeps its place in the menu either way; only whether it can be chosen changes
+        #expect(isEnabled(.sleep, in: .online, sleep: .available))
+        // Not yet asked this session, so the capabilities request will decide
+        #expect(isEnabled(.sleep, in: .online, sleep: .unknown))
+        #expect(!isEnabled(.sleep, in: .online, sleep: .unsupported))
+        #expect(!isEnabled(.sleep, in: .online, sleep: .notAllowed))
+        // A busy host is still choosable: busy is only learned from the capabilities request
+        #expect(isEnabled(.sleep, in: .online, sleep: .available))
+
+        #expect(holdMenu(for: .online, runningAppName: nil) == [.openBigPicture, .openDesktop, .sleep, .testNetwork, .removeComputer])
+        #expect(HoldMenuItem.sleep.title == "Quit and Sleep")
+    }
+
     @Test func classifiesLaunchFailuresByCodeAndMessage() {
         #expect(classifyLaunchFailure(statusCode: 403, message: "Permission denied") == .notAllowed)
         #expect(classifyLaunchFailure(statusCode: 403, message: "Encryption is mandatory for this host but unsupported by the client") == .other)
         #expect(classifyLaunchFailure(statusCode: 503, message: "Failed to initialize video capture/encoding. Is a display connected and turned on?") == .noDisplay)
         #expect(classifyLaunchFailure(statusCode: 503, message: "No running app to resume") == .other)
         #expect(classifyLaunchFailure(statusCode: 400, message: "x") == .other)
+    }
+}
+
+@Suite struct PowerActionTests {
+    private func xml(_ body: String, status: Int = 200) -> Data {
+        Data("""
+        <?xml version="1.0" encoding="utf-8"?>
+        <root status_code="\(status)" status_message="">\(body)</root>
+        """.utf8)
+    }
+
+    private var token: String { String(repeating: "a", count: 64) }
+
+    @Test func readsAnIdleHostThatAllowsSleep() throws {
+        let capabilities = try #require(PowerActionCapabilities(xml: xml("""
+        <PowerActionVersion>1</PowerActionVersion><SleepSupported>1</SleepSupported><SleepAllowed>1</SleepAllowed><SleepAvailable>1</SleepAvailable><SleepActiveSessionPolicy>idle-only</SleepActiveSessionPolicy><SleepToken>\(token)</SleepToken><SleepTokenLifetimeSeconds>30</SleepTokenLifetimeSeconds><SleepAccepted>0</SleepAccepted>
+        """)))
+        #expect(capabilities.version == 1)
+        #expect(capabilities.isOffered)
+        #expect(capabilities.canSleepNow)
+        #expect(capabilities.token == token)
+        #expect(capabilities.tokenLifetimeSeconds == 30)
+        #expect(capabilities.activeSessionPolicy == "idle-only")
+        #expect(!capabilities.accepted)
+    }
+
+    @Test func aBusyHostHasNothingToSpend() throws {
+        // The flag-only answer is still a 200 and still version 1; the empty token is the busy signal
+        let capabilities = try #require(PowerActionCapabilities(xml: xml("""
+        <PowerActionVersion>1</PowerActionVersion><SleepSupported>1</SleepSupported><SleepAllowed>1</SleepAllowed><SleepAvailable>0</SleepAvailable><SleepActiveSessionPolicy>idle-only</SleepActiveSessionPolicy><SleepToken></SleepToken><SleepTokenLifetimeSeconds>30</SleepTokenLifetimeSeconds><SleepAccepted>0</SleepAccepted>
+        """)))
+        #expect(capabilities.version == 1)
+        #expect(capabilities.isOffered)
+        #expect(!capabilities.available)
+        #expect(capabilities.token == nil)
+        #expect(!capabilities.canSleepNow)
+    }
+
+    @Test func aHostThatCannotSleepStillReportsVersionOne() throws {
+        let unsupported = try #require(PowerActionCapabilities(xml: xml(
+            "<PowerActionVersion>1</PowerActionVersion><SleepSupported>0</SleepSupported><SleepAllowed>1</SleepAllowed>"
+            + "<SleepAvailable>0</SleepAvailable><SleepToken></SleepToken><SleepAccepted>0</SleepAccepted>")))
+        #expect(unsupported.version == 1)
+        #expect(!unsupported.supported)
+        #expect(!unsupported.isOffered)
+
+        let notAllowed = try #require(PowerActionCapabilities(xml: xml(
+            "<PowerActionVersion>1</PowerActionVersion><SleepSupported>1</SleepSupported><SleepAllowed>0</SleepAllowed>"
+            + "<SleepAvailable>0</SleepAvailable><SleepToken></SleepToken><SleepAccepted>0</SleepAccepted>")))
+        #expect(notAllowed.supported)
+        #expect(!notAllowed.allowed)
+        #expect(!notAllowed.isOffered)
+    }
+
+    @Test func readsAcceptanceFromTheSleepResponse() throws {
+        let accepted = try #require(PowerActionCapabilities(xml: xml("""
+        <PowerActionVersion>1</PowerActionVersion><SleepSupported>1</SleepSupported><SleepAllowed>1</SleepAllowed><SleepAvailable>1</SleepAvailable><SleepToken></SleepToken><SleepAccepted>1</SleepAccepted>
+        """, status: 202)))
+        #expect(accepted.accepted)
+
+        // A 200 is not success for the sleep request, so the flag stays 0
+        let notAccepted = try #require(PowerActionCapabilities(xml: xml(
+            "<PowerActionVersion>1</PowerActionVersion><SleepAccepted>0</SleepAccepted>")))
+        #expect(!notAccepted.accepted)
+    }
+
+    @Test func aHostWithoutTheExtensionIsNotParseable() {
+        #expect(PowerActionCapabilities(xml: xml("<hostname>PC</hostname><uniqueid>abc</uniqueid>")) == nil)
+        #expect(PowerActionCapabilities(xml: Data()) == nil)
+    }
+
+    @Test func mapsRefusalsByStatusCode() {
+        #expect(classifySleepRefusal(statusCode: 401) == .identityLost)
+        #expect(classifySleepRefusal(statusCode: 403) == .notAllowed)
+        #expect(classifySleepRefusal(statusCode: 409) == .busy)
+        #expect(classifySleepRefusal(statusCode: 501) == .unsupported)
+        #expect(classifySleepRefusal(statusCode: 503) == .hostBusy)
+        #expect(classifySleepRefusal(statusCode: 202) == .other)
+        #expect(classifySleepRefusal(statusCode: 0) == .other)
+        #expect(classifySleepRefusal(statusCode: -1009) == .other)
     }
 }
 

@@ -249,6 +249,15 @@ final class HomeModel: NSObject, ObservableObject, DiscoveryCallback {
 
     private static let palette: [UInt32] = [0x3A5BA0, 0x2E7A68, 0x4A4A52, 0x2E3440, 0x3A3A44]
 
+    /// Whether the host advertises native sleep to this paired client.
+    private func sleepCapability(_ host: TemporaryHost) -> SleepCapability {
+        switch host.powerActionVersion {
+        case -1: .unknown
+        case 1: host.sleepSupported ? (host.sleepAllowed ? .available : .notAllowed) : .unsupported
+        default: .unsupported
+        }
+    }
+
     private func rebuild() {
         for id in hosts.keys where entries[id] == nil {
             entries[id] = Entry()
@@ -275,6 +284,7 @@ final class HomeModel: NSObject, ObservableObject, DiscoveryCallback {
                                         pinSecondsLeft: pairId == host.uuid ? pinLeft : nil, notice: entry.notice)
             let hash = host.uuid.unicodeScalars.reduce(0) { $0 + Int($1.value) }
             return HostTileModel(id: host.uuid, name: host.name, state: state,
+                                 sleepCapability: sleepCapability(host),
                                  tintHex: Self.palette[hash % Self.palette.count],
                                  backdrop: paired ? entry.cache?.hero ?? entry.cache?.wallpaper : nil,
                                  tileArt: paired ? entry.cache?.hero : nil,
@@ -597,42 +607,93 @@ final class HomeModel: NSObject, ObservableObject, DiscoveryCallback {
         }
     }
 
-    /// Sleeps the PC. The tile shows a spinner until the host answers; on success it keeps spinning for a few seconds, then shows offline.
-    /// A failure is a one-off line rather than the tile's error state: the host may simply be busy,
-    /// and pressing the tile should still start a stream.
+    /// Quits whatever the PC retained for Resume, then asks Vibepollo to sleep. The host mints a
+    /// single-use token only while it is idle, so discovery pauses, the token is spent once, and
+    /// no failure is retried. The tile shows a spinner until the host answers; on success it keeps
+    /// spinning for a few seconds, then shows offline.
+    /// A failure is a one-off line rather than the tile's error state: the host may simply be
+    /// busy, and pressing the tile should still start a stream.
     private func sleep(_ id: String) {
         guard let host = hosts[id], let discovery else { return }
+        let runningApp = appRunning(host) ? entries[id]?.appNames[host.currentGame ?? ""] ?? "the running app" : nil
         entries[id]?.phase = .sleeping
         entries[id]?.notice = nil
         rebuild()
         DispatchQueue.global(qos: .userInitiated).async {
             let manager = HttpManager(host: host)!
-            let response = HttpResponse()
             discovery.pauseDiscovery(for: host)
-            manager.executeRequestSynchronously(HttpRequest(for: response, with: manager.newSleepRequest()))
-            let code = response.statusCode
-            // The PC keeps answering for a few seconds while it suspends, so a 200 keeps discovery
-            // paused for a grace period and the host is shown offline straight away.
-            if code == 200 {
+
+            // A retained app, which is what leaving a stream leaves behind, makes the host refuse
+            // to sleep. Quit it first, and stop if that fails rather than sleep with it running.
+            if let runningApp {
+                let quit = HttpResponse()
+                manager.executeRequestSynchronously(HttpRequest(for: quit, with: manager.newQuitAppRequest()))
+                guard quit.isStatusOk() else {
+                    discovery.resumeDiscovery(for: host)
+                    DispatchQueue.main.async {
+                        self.entries[id]?.phase = .idle
+                        self.notice(id, "Couldn’t quit \(runningApp) on \(host.name) · Try again")
+                    }
+                    return
+                }
+                DispatchQueue.main.async {
+                    host.currentGame = "0"
+                    host.activeStreamClient = nil
+                    self.rebuild()
+                }
+            }
+
+            // Step 1: the flags and a fresh token. This replaces any earlier token, so minting and
+            // spending happen inside this one action. The HTTP status is normally 200 even when
+            // sleep is unsupported, not allowed or busy, so the flags decide.
+            let capabilitiesResponse = HttpResponse()
+            manager.executeRequestSynchronously(HttpRequest(for: capabilitiesResponse, with: manager.newPowerActionCapabilitiesRequest()))
+            let capabilities = capabilitiesResponse.data.flatMap { PowerActionCapabilities(xml: $0) }
+
+            let refusal: SleepRefusal?
+            if capabilitiesResponse.statusCode == 401 || capabilitiesResponse.statusCode == 503 {
+                refusal = classifySleepRefusal(statusCode: capabilitiesResponse.statusCode)
+            } else if let capabilities, capabilities.version == 1 {
+                if !capabilities.supported { refusal = .unsupported }
+                else if !capabilities.allowed { refusal = .notAllowed }
+                else if !capabilities.canSleepNow { refusal = .busy }
+                else { refusal = nil }
+            } else {
+                // No PowerActionVersion: the host has no native sleep.
+                refusal = .unsupported
+            }
+
+            guard refusal == nil, let token = capabilities?.token else {
+                discovery.resumeDiscovery(for: host)
+                DispatchQueue.main.async {
+                    self.entries[id]?.phase = .idle
+                    self.notice(id, Self.sleepRefusalText(refusal ?? .other, host: host.name))
+                }
+                return
+            }
+
+            // Step 2: spend the token exactly once. Success is 202 with SleepAccepted; a 200 is not
+            // success for this request, and 202 means accepted, not that the PC has suspended.
+            let sleepResponse = HttpResponse()
+            manager.executeRequestSynchronously(HttpRequest(for: sleepResponse, with: manager.newPowerActionSleepRequest(token)))
+            let accepted = sleepResponse.statusCode == 202
+                && (sleepResponse.data.flatMap { PowerActionCapabilities(xml: $0) }?.accepted ?? false)
+            let refusalAfterPost = accepted ? nil : classifySleepRefusal(statusCode: sleepResponse.statusCode)
+
+            // The PC keeps answering discovery for a few seconds while it suspends, so a success
+            // keeps discovery paused for a grace period and the host is shown offline straight away.
+            if accepted {
                 DispatchQueue.global().asyncAfter(deadline: .now() + Self.sleepGrace) {
                     discovery.resumeDiscovery(for: host)
                 }
             } else {
                 discovery.resumeDiscovery(for: host)
             }
-            let message = response.statusMessage ?? ""
+
             DispatchQueue.main.async {
-                let failure: String? = switch code {
-                case 200: nil
-                case 403 where message == "Permission denied":
-                    "Apollo hasn’t allowed this Apple TV to start apps · Change it in Apollo on the PC"
-                case 409: "\(host.name) is streaming to another device · Quit that stream first"
-                case 501: "Apollo on this PC can’t put it to sleep"
-                default: "Couldn’t put \(host.name) to sleep · Check that it’s online"
-                }
-                if let failure {
+                if let refusalAfterPost {
                     self.entries[id]?.phase = .idle
-                    self.notice(id, failure)
+                    self.notice(id, Self.sleepRefusalText(refusalAfterPost, host: host.name))
                     return
                 }
                 // On its way down, so stop drawing the app it was running
@@ -648,6 +709,19 @@ final class HomeModel: NSObject, ObservableObject, DiscoveryCallback {
                     self.rebuild()
                 }
             }
+        }
+    }
+
+    /// One line for a refused or unanswered sleep request, chosen by status code. The host's own
+    /// message is empty on the flag-only answers, so it cannot be matched on.
+    private static func sleepRefusalText(_ refusal: SleepRefusal, host: String) -> String {
+        switch refusal {
+        case .identityLost: "\(host) no longer recognises this Apple TV · Pair again"
+        case .notAllowed: "Apollo hasn’t allowed this Apple TV to sleep · Change it in Apollo on the PC"
+        case .busy: "\(host) is busy · Close any app or stream on it, then try again"
+        case .unsupported: "Apollo on this PC can’t put it to sleep"
+        case .hostBusy: "\(host) is busy · Try again in a moment"
+        case .other: "Couldn’t put \(host) to sleep · Check that it’s online"
         }
     }
 

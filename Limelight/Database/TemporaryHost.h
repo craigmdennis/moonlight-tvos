@@ -33,6 +33,13 @@
 // streams); stock Sunshine never does, so a running app means somebody else is streaming.
 @property (atomic) BOOL reportsActiveClient;
 
+// Vibepollo power actions, from the paired /serverinfo. Transient: not stored in Core Data,
+// so no migration. `powerActionVersion` stays 0 for hosts that send no version element,
+// which is how a host without native sleep is told apart.
+@property (atomic) int powerActionVersion;
+@property (atomic) BOOL sleepSupported;
+@property (atomic) BOOL sleepAllowed;
+
 NS_ASSUME_NONNULL_BEGIN
 
 @property (atomic, retain) NSString *name;

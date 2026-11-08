@@ -17,6 +17,8 @@
     self.appList = [[NSMutableSet alloc] init];
     self.currentGame = @"0";
     self.state = StateUnknown;
+    // Not seen in a paired /serverinfo yet; 0 means the host answered without one.
+    self.powerActionVersion = -1;
     
     return self;
 }

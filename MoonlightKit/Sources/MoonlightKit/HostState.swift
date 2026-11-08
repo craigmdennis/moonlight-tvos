@@ -105,11 +105,49 @@ public extension HostCardState {
 public enum HoldMenuItem: Hashable, Sendable {
     case openBigPicture
     case openDesktop
-    /// Suspends the PC. Offered for a paired host, enabled only while it answers.
+    /// Quits whatever is retained for Resume, then suspends the PC.
     case sleep
     case quit(appName: String)
     case testNetwork
     case removeComputer
+}
+
+/// What the host's paired `/serverinfo` says about native sleep. Busy is not part of this:
+/// availability is learned from the capabilities request and can change between actions.
+public enum SleepCapability: Equatable, Sendable {
+    /// The host has not been asked yet this session.
+    case unknown
+    /// The host supports native sleep and allows this Apple TV to use it.
+    case available
+    /// The host has no native sleep, or reports it as unavailable hardware.
+    case unsupported
+    /// The host supports sleep but the grant is off for this paired client.
+    case notAllowed
+}
+
+extension HoldMenuItem {
+    public var title: String {
+        switch self {
+        case .openBigPicture: "Open Steam Big Picture"
+        case .openDesktop: "Open Desktop"
+        // The host refuses sleep while an app is retained for Resume, so the action quits first.
+        case .sleep: "Quit and Sleep"
+        case .quit(let app): "Quit \(app)"
+        case .testNetwork: "Test Network"
+        case .removeComputer: "Remove Computer"
+        }
+    }
+
+    public var symbol: String {
+        switch self {
+        case .openBigPicture: "gamecontroller"
+        case .openDesktop: "display"
+        case .sleep: "moon.zzz.fill"
+        case .quit: "xmark.circle"
+        case .testNetwork: "wifi"
+        case .removeComputer: "trash"
+        }
+    }
 }
 
 /// Items of the hold menu. Holding the Add tile opens nothing.
@@ -126,9 +164,13 @@ public func holdMenu(for state: HostCardState, runningAppName: String?) -> [Hold
 
 /// Whether a hold menu item can be chosen. A disabled item stays visible but is skipped
 /// when moving through the menu.
-public func isEnabled(_ item: HoldMenuItem, in state: HostCardState) -> Bool {
+public func isEnabled(_ item: HoldMenuItem, in state: HostCardState,
+                      sleep: SleepCapability = .unknown) -> Bool {
     switch item {
-    case .sleep: state == .online
+    case .sleep:
+        // The host must answer, and its paired /serverinfo must offer sleep to this client.
+        // Busy is not checked here: it is only known once the capabilities request answers.
+        state == .online && (sleep == .available || sleep == .unknown)
     default: true
     }
 }
